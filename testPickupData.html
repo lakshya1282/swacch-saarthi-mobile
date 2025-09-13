@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pickup Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .pickup-card {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .pickup-id {
+            font-weight: bold;
+            color: #2196F3;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending {
+            background: #FFC107;
+            color: white;
+        }
+        .status-confirmed {
+            background: #4CAF50;
+            color: white;
+        }
+        .status-completed {
+            background: #2196F3;
+            color: white;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Pickup Data Test Panel</h1>
+        <p>Use this panel to test and debug pickup data storage and retrieval</p>
+    </div>
+
+    <div class="container">
+        <h2>📊 Statistics</h2>
+        <div class="stats" id="stats">
+            <!-- Stats will be populated here -->
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Actions</h2>
+        <button class="button" onclick="addTestPickup()">Add Test Pickup</button>
+        <button class="button" onclick="loadPickups()">Refresh Pickups</button>
+        <button class="button" onclick="clearAllPickups()">Clear All Pickups</button>
+        <button class="button" onclick="exportData()">Export Data</button>
+        <button class="button" onclick="testAPI()">Test API Connection</button>
+    </div>
+
+    <div class="container">
+        <h2>📦 Stored Pickups</h2>
+        <div id="pickupList">
+            <!-- Pickups will be displayed here -->
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔍 Raw Data</h2>
+        <pre id="rawData"></pre>
+    </div>
+
+    <script>
+        // Load pickups on page load
+        window.onload = function() {
+            loadPickups();
+        };
+
+        function loadPickups() {
+            const pickups = JSON.parse(localStorage.getItem('pickupHistory') || '[]');
+            
+            // Update statistics
+            updateStats(pickups);
+            
+            // Display pickups
+            const pickupList = document.getElementById('pickupList');
+            if (pickups.length === 0) {
+                pickupList.innerHTML = '<p>No pickups found in localStorage. Click "Add Test Pickup" to create one.</p>';
+            } else {
+                pickupList.innerHTML = pickups.map(pickup => `
+                    <div class="pickup-card">
+                        <div><span class="pickup-id">ID: ${pickup.pickupId}</span> 
+                             <span class="status status-${pickup.status || 'pending'}">${(pickup.status || 'pending').toUpperCase()}</span>
+                        </div>
+                        <div><strong>User:</strong> ${pickup.userId}</div>
+                        <div><strong>Waste Types:</strong> ${Array.isArray(pickup.wasteTypes) ? pickup.wasteTypes.join(', ') : pickup.wasteTypes}</div>
+                        <div><strong>Weight:</strong> ${pickup.estimatedWeight}</div>
+                        <div><strong>Time Slot:</strong> ${pickup.timeSlot}</div>
+                        <div><strong>Date:</strong> ${pickup.scheduledDate} ${pickup.scheduledTime || ''}</div>
+                        <div><strong>Instructions:</strong> ${pickup.specialInstructions || 'None'}</div>
+                        ${pickup.location ? `<div><strong>Location:</strong> Lat: ${pickup.location.latitude.toFixed(4)}, Lng: ${pickup.location.longitude.toFixed(4)}</div>` : ''}
+                        ${pickup.wasteImages && pickup.wasteImages.length > 0 ? `<div><strong>Images:</strong> ${pickup.wasteImages.length} uploaded</div>` : ''}
+                        <div><strong>Created:</strong> ${pickup.createdAt || 'Unknown'}</div>
+                    </div>
+                `).join('');
+            }
+            
+            // Display raw data
+            document.getElementById('rawData').textContent = JSON.stringify(pickups, null, 2);
+        }
+
+        function updateStats(pickups) {
+            const stats = {
+                total: pickups.length,
+                pending: pickups.filter(p => !p.status || p.status === 'pending').length,
+                confirmed: pickups.filter(p => p.status === 'confirmed').length,
+                completed: pickups.filter(p => p.status === 'completed').length
+            };
+            
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total}</div>
+                    <div class="stat-label">Total Pickups</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="stat-value">${stats.pending}</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <div class="stat-value">${stats.confirmed}</div>
+                    <div class="stat-label">Confirmed</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <div class="stat-value">${stats.completed}</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+            `;
+        }
+
+        function addTestPickup() {
+            const pickups = JSON.parse(localStorage.getItem('pickupHistory') || '[]');
+            
+            const testPickup = {
+                pickupId: `PU${Date.now()}${Math.floor(Math.random() * 1000)}`,
+                userId: localStorage.getItem('userId') || 'TEST_USER',
+                wasteTypes: ['Dry Waste', 'Recyclables'],
+                estimatedWeight: `${Math.floor(Math.random() * 10) + 1} kg`,
+                timeSlot: '10:00 AM - 2:00 PM',
+                specialInstructions: 'Test pickup created from test panel',
+                scheduledDate: new Date().toLocaleDateString(),
+                scheduledTime: new Date().toLocaleTimeString(),
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                location: {
+                    latitude: 28.6139 + (Math.random() - 0.5) * 0.1,
+                    longitude: 77.2090 + (Math.random() - 0.5) * 0.1,
+                    accuracy: 10
+                }
+            };
+            
+            pickups.unshift(testPickup);
+            localStorage.setItem('pickupHistory', JSON.stringify(pickups));
+            
+            alert('Test pickup added successfully!');
+            loadPickups();
+        }
+
+        function clearAllPickups() {
+            if (confirm('Are you sure you want to clear all pickups? This action cannot be undone.')) {
+                localStorage.removeItem('pickupHistory');
+                alert('All pickups cleared!');
+                loadPickups();
+            }
+        }
+
+        function exportData() {
+            const pickups = localStorage.getItem('pickupHistory') || '[]';
+            const blob = new Blob([pickups], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pickups_${new Date().getTime()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Data exported successfully!');
+        }
+
+        async function testAPI() {
+            try {
+                const response = await fetch('http://localhost:3000/api/pickups/user/TEST', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token') || 'test'}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`API Connection Successful!\n\nResponse: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    alert(`API Connection Failed!\n\nStatus: ${response.status}\nStatusText: ${response.statusText}`);
+                }
+            } catch (error) {
+                alert(`API Connection Error!\n\n${error.message}\n\nMake sure the server is running with: npm run server`);
+            }
+        }
+    </script>
+</body>
+</html>

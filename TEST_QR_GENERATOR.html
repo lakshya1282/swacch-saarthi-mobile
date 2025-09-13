@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator for Testing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .qr-generator {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            background: #FF9800;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #F57C00;
+        }
+        .success {
+            background: #4CAF50;
+        }
+        .success:hover {
+            background: #45a049;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .code-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 QR Code Generator for Waste Management Testing</h1>
+        <p><strong>Purpose:</strong> Generate QR codes with specific order IDs to test the strict validation system.</p>
+        
+        <div class="qr-generator">
+            <h3>📋 Common Demo Order IDs</h3>
+            <p>Click these buttons to generate QR codes for the demo pickup assignments:</p>
+            
+            <button onclick="generateQR('accepted_1', 'PU-1012-2001')">Generate QR for PU-1012-2001</button>
+            <button onclick="generateQR('accepted_2', 'PU-1012-2002')">Generate QR for PU-1012-2002</button>
+            <button onclick="generateQR('accepted_3', 'PU-1012-2003')">Generate QR for PU-1012-2003</button>
+            <button onclick="generateQR('accepted_4', 'PU-1012-2004')">Generate QR for PU-1012-2004</button>
+        </div>
+
+        <div class="qr-generator">
+            <h3>🎯 Custom Order ID Generator</h3>
+            <input type="text" id="customOrderId" placeholder="Enter Order ID (e.g., PU-1012-2005)" value="PU-1012-2005">
+            <button onclick="generateCustomQR()">Generate Custom QR</button>
+        </div>
+
+        <div class="qr-generator">
+            <h3>❌ Invalid QR Generator (for testing rejection)</h3>
+            <button onclick="generateInvalidQR('WRONG123')">Generate Wrong Order ID</button>
+            <button onclick="generateInvalidQR('RANDOM456')">Generate Random Code</button>
+            <button onclick="generateInvalidQR('INVALID789')">Generate Invalid Format</button>
+        </div>
+
+        <div id="output">
+            <h3>Generated QR Codes:</h3>
+            <p><em>QR codes will appear here. Right-click on any QR code to save it to your device for testing.</em></p>
+        </div>
+    </div>
+
+    <script>
+        let qrCounter = 0;
+
+        function generateQR(assignmentId, pickupId) {
+            const qrData = {
+                pickupId: pickupId,
+                verificationCode: `DEMO${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+                timestamp: new Date().toISOString(),
+                customerName: `Demo Customer`,
+                address: `Demo Address for ${pickupId}`
+            };
+
+            createQRCanvas(JSON.stringify(qrData), `Valid QR for ${pickupId}`, '#e8f5e8', '#4caf50');
+            displayQRData(qrData, `Valid QR Code for Order: ${pickupId}`, 'success');
+        }
+
+        function generateCustomQR() {
+            const customId = document.getElementById('customOrderId').value.trim();
+            if (!customId) {
+                alert('Please enter a custom order ID');
+                return;
+            }
+
+            generateQR('custom', customId);
+        }
+
+        function generateInvalidQR(wrongCode) {
+            const invalidData = {
+                pickupId: wrongCode,
+                verificationCode: `WRONG${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+                timestamp: new Date().toISOString(),
+                note: "This QR should be REJECTED by the system"
+            };
+
+            createQRCanvas(JSON.stringify(invalidData), `Invalid QR (${wrongCode})`, '#ffebee', '#f44336');
+            displayQRData(invalidData, `Invalid QR Code (Should be Rejected): ${wrongCode}`, 'error');
+        }
+
+        function createQRCanvas(data, title, bgColor, borderColor) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 250;
+            canvas.height = 250;
+            canvas.title = title;
+            canvas.style.cursor = 'pointer';
+
+            // Background
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, 250, 250);
+
+            // Border
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 4;
+            ctx.strokeRect(2, 2, 246, 246);
+
+            // QR pattern simulation
+            ctx.fillStyle = '#000';
+            
+            // Corner squares
+            drawCornerSquare(ctx, 20, 20);
+            drawCornerSquare(ctx, 180, 20);
+            drawCornerSquare(ctx, 20, 180);
+
+            // Random pattern for middle
+            for (let x = 60; x < 190; x += 15) {
+                for (let y = 60; y < 190; y += 15) {
+                    if (Math.random() > 0.4) {
+                        ctx.fillRect(x, y, 12, 12);
+                    }
+                }
+            }
+
+            // Title text
+            ctx.fillStyle = borderColor;
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(title, 125, 240);
+
+            // Add click handler to download
+            canvas.onclick = () => downloadCanvas(canvas, title);
+            
+            return canvas;
+        }
+
+        function drawCornerSquare(ctx, x, y) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x, y, 35, 35);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 7, y + 7, 21, 21);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 14, y + 14, 7, 7);
+        }
+
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = `qr-${filename.replace(/\s+/g, '-').toLowerCase()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function displayQRData(data, title, type) {
+            qrCounter++;
+            const output = document.getElementById('output');
+            
+            const qrContainer = document.createElement('div');
+            qrContainer.className = 'qr-generator';
+            qrContainer.style.borderColor = type === 'success' ? '#4caf50' : '#f44336';
+            
+            const titleElement = document.createElement('h4');
+            titleElement.textContent = title;
+            titleElement.style.color = type === 'success' ? '#2e7d32' : '#d32f2f';
+            
+            const canvas = createQRCanvas(JSON.stringify(data), title, 
+                type === 'success' ? '#e8f5e8' : '#ffebee',
+                type === 'success' ? '#4caf50' : '#f44336');
+            
+            const codeDisplay = document.createElement('div');
+            codeDisplay.className = 'code-display';
+            codeDisplay.textContent = JSON.stringify(data, null, 2);
+            
+            const instructions = document.createElement('p');
+            instructions.innerHTML = `
+                <strong>Instructions:</strong> 
+                ${type === 'success' ? 
+                    '✅ This QR code should be ACCEPTED by the system when completing the matching pickup order.' :
+                    '❌ This QR code should be REJECTED by the system as it does not match any valid pickup order.'
+                }<br>
+                📱 <em>Click the QR code image to download it, then upload it in the worker app to test validation.</em>
+            `;
+            
+            qrContainer.appendChild(titleElement);
+            qrContainer.appendChild(canvas);
+            qrContainer.appendChild(codeDisplay);
+            qrContainer.appendChild(instructions);
+            
+            output.appendChild(qrContainer);
+        }
+
+        // Generate some initial QR codes
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                generateQR('demo1', 'PU-1012-2001');
+                generateInvalidQR('WRONG-ORDER-123');
+            }, 500);
+        });
+    </script>
+</body>
+</html>
