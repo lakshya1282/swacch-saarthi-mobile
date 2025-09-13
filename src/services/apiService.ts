@@ -1,0 +1,340 @@
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+class ApiService {
+  private baseURL: string;
+  private api: AxiosInstance;
+
+  constructor() {
+    // Dynamic base URL based on platform and environment
+    this.baseURL = this.getBaseURL();
+    console.log('API Base URL:', this.baseURL);
+    
+    this.api = axios.create({
+      baseURL: this.baseURL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.setupInterceptors();
+  }
+
+  private getBaseURL(): string {
+    // Configuration for different environments
+    const configs = {
+      // Android Emulator
+      androidEmulator: 'http://10.0.2.2:3000/api',
+      // iOS Simulator
+      iosSimulator: 'http://localhost:3000/api',
+      // Physical Device (same network)
+      physicalDevice: 'http://192.168.29.93:3000/api',
+      // Production (update when deployed)
+      production: 'http://192.168.29.93:3000/api'
+    };
+
+    // Auto-detect based on platform
+    if (__DEV__) {
+      // Development mode
+      if (Platform.OS === 'android') {
+        // Check if running on emulator (basic check)
+        // For more accurate detection, use react-native-device-info
+        return configs.physicalDevice; // Using physical device IP
+      } else if (Platform.OS === 'ios') {
+        return configs.iosSimulator;
+      }
+    }
+    
+    // Default to physical device IP for your current setup
+    return configs.physicalDevice;
+  }
+
+  private setupInterceptors() {
+    // Request interceptor to add auth token
+    this.api.interceptors.request.use(
+      async (config) => {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (error) {
+          console.error('Error getting auth token:', error);
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor for error handling
+    this.api.interceptors.response.use(
+      (response: AxiosResponse) => response,
+      async (error) => {
+        if (error.response?.status === 401) {
+          // Token expired or invalid, logout user
+          await AsyncStorage.multiRemove(['authToken', 'userType', 'userData']);
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  // Auth endpoints
+  async login(email: string, password: string) {
+    return this.api.post('/auth/login', { email, password });
+  }
+
+  async register(userData: any) {
+    return this.api.post('/auth/register', userData);
+  }
+
+  async logout() {
+    return this.api.post('/auth/logout');
+  }
+
+  // User endpoints
+  async getUserProfile() {
+    return this.api.get('/users/profile');
+  }
+
+  async updateUserProfile(profileData: any) {
+    return this.api.put('/users/profile', profileData);
+  }
+
+  // Pickup endpoints - Updated to match backend routes
+  async getPickups() {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return this.api.get(`/pickups/user/${user.id}`);
+      } else {
+        // Fallback to general pickup endpoint if no user ID
+        return this.api.get('/pickups/schedules');
+      }
+    } catch (error) {
+      console.error('Error getting user data for pickups:', error);
+      // Fallback to schedules endpoint
+      return this.api.get('/pickups/schedules');
+    }
+  }
+
+  async schedulePickup(pickupData: any) {
+    return this.api.post('/pickups/schedule', pickupData);
+  }
+
+  async updatePickupStatus(pickupId: string, status: string) {
+    return this.api.put(`/pickups/${pickupId}/status`, { status });
+  }
+
+  async cancelPickup(pickupId: string) {
+    return this.api.delete(`/pickups/${pickupId}`);
+  }
+
+  // QR Code endpoints
+  async generateQRCode(data: any) {
+    return this.api.post('/qr/generate', data);
+  }
+
+  async validateQRCode(qrData: string) {
+    return this.api.post('/qr/validate', { qrData });
+  }
+
+  // Waste validation endpoints
+  async validateWaste(wasteData: any) {
+    return this.api.post('/waste/validate', wasteData);
+  }
+
+  async getWasteTypes() {
+    return this.api.get('/waste/types');
+  }
+
+  // Worker specific endpoints
+  async getWorkerTasks() {
+    // First try worker-specific endpoint, then fall back to pickups
+    try {
+      return await this.api.get('/worker/tasks');
+    } catch (error) {
+      // Fallback to pickups endpoint for tasks
+      return this.api.get('/pickups');
+    }
+  }
+
+  async getAvailableTasksOnly() {
+    try {
+      const response = await this.api.get('/pickups');
+      const allPickups = response.data?.data || response.data || [];
+      // Filter only pending/scheduled pickups for available tasks
+      const availableTasks = allPickups.filter((pickup: any) => 
+        pickup.status === 'pending' || pickup.status === 'scheduled'
+      );
+      return { ...response, data: availableTasks };
+    } catch (error) {
+      console.error('Error fetching available tasks:', error);
+      throw error;
+    }
+  }
+
+  async getMyTasksOnly() {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      const workerId = userData ? JSON.parse(userData).id : null;
+      
+      const response = await this.api.get('/pickups');
+      const allPickups = response.data?.data || response.data || [];
+      
+      // Filter tasks assigned to or in progress by current worker
+      const myTasks = allPickups.filter((pickup: any) => 
+        (pickup.status === 'assigned' || pickup.status === 'in_progress') &&
+        (!pickup.assignedWorkerId || pickup.assignedWorkerId === workerId)
+      );
+      return { ...response, data: myTasks };
+    } catch (error) {
+      console.error('Error fetching my tasks:', error);
+      throw error;
+    }
+  }
+
+  async getWorkerDashboard() {
+    return this.api.get('/worker/dashboard');
+  }
+
+  async getAvailableTasks() {
+    // Get all pickups with status 'pending' or 'scheduled'
+    try {
+      return await this.api.get('/worker/tasks/available');
+    } catch (error) {
+      // Fallback to pickups with pending status
+      return this.api.get('/pickups?status=pending');
+    }
+  }
+
+  async getMyTasks() {
+    try {
+      return await this.api.get('/worker/tasks/my-tasks');
+    } catch (error) {
+      // Fallback to pickups assigned to current worker
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return this.api.get(`/pickups?workerId=${user.id}`);
+      }
+      return this.api.get('/pickups?status=assigned');
+    }
+  }
+
+  // Get all pickups (for workers to see as tasks)
+  async getAllPickups() {
+    return this.api.get('/pickups');
+  }
+
+  async acceptTask(taskId: string) {
+    try {
+      return await this.api.post(`/worker/tasks/${taskId}/accept`);
+    } catch (error) {
+      // Fallback: Update pickup status to 'assigned' if worker endpoints don't exist
+      console.log('Worker task endpoint not available, using pickup status update');
+      return this.api.put(`/pickups/${taskId}/status`, { status: 'assigned' });
+    }
+  }
+
+  async startTask(taskId: string) {
+    try {
+      return await this.api.post(`/worker/tasks/${taskId}/start`);
+    } catch (error) {
+      // Fallback: Update pickup status to 'in_progress' if worker endpoints don't exist
+      console.log('Worker task endpoint not available, using pickup status update');
+      return this.api.put(`/pickups/${taskId}/status`, { status: 'in_progress' });
+    }
+  }
+
+  async completeTask(taskId: string, completionData?: any) {
+    try {
+      return await this.api.post(`/worker/tasks/${taskId}/complete`, completionData || {});
+    } catch (error) {
+      // Fallback: Update pickup status to 'completed' if worker endpoints don't exist
+      console.log('Worker task endpoint not available, using pickup status update');
+      return this.api.put(`/pickups/${taskId}/status`, { status: 'completed', ...completionData });
+    }
+  }
+
+  async updateTaskStatus(taskId: string, status: string) {
+    return this.api.put(`/worker/tasks/${taskId}`, { status });
+  }
+
+  async scanQRCode(qrData: string) {
+    return this.api.post('/worker/scan', { qrData });
+  }
+
+  async markHouseholdReached(data: { citizenId: string; householdId: string; timestamp: number }) {
+    try {
+      return await this.api.post('/worker/household/reached', data);
+    } catch (error) {
+      // Mock response for demo when endpoint doesn't exist
+      console.log('Household reached endpoint not available, returning mock response');
+      return {
+        data: {
+          success: true,
+          message: 'Household marked as reached',
+          citizenId: data.citizenId,
+          householdId: data.householdId,
+          status: 'reached',
+          timestamp: data.timestamp
+        }
+      };
+    }
+  }
+
+  async getTaskDetails(taskId: string) {
+    return this.api.get(`/worker/tasks/${taskId}`);
+  }
+
+  async reportIssue(taskId: string, issueData: any) {
+    return this.api.post(`/worker/tasks/${taskId}/report-issue`, issueData);
+  }
+
+  // Location endpoints
+  async updateLocation(locationData: { latitude: number; longitude: number }) {
+    return this.api.post('/users/location', locationData);
+  }
+
+  async getNearbyPickups(locationData: { latitude: number; longitude: number; radius?: number }) {
+    return this.api.post('/pickups/nearby', locationData);
+  }
+
+  // File upload endpoint
+  async uploadFile(formData: FormData) {
+    return this.api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  // Generic request method
+  async request(config: AxiosRequestConfig) {
+    return this.api.request(config);
+  }
+
+  // Update base URL (useful for switching between dev/prod environments)
+  updateBaseURL(newBaseURL: string) {
+    this.baseURL = newBaseURL;
+    this.api.defaults.baseURL = newBaseURL;
+  }
+
+  // Check server connectivity
+  async checkHealth() {
+    try {
+      return await this.api.get('/health');
+    } catch (error) {
+      console.log('Server connectivity check failed:', error);
+      throw error;
+    }
+  }
+}
+
+export default new ApiService();

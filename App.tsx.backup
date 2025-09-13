@@ -1,16 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'react-native';
 import {
   SafeAreaProvider,
 } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
 // Import screens
-import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import HomeScreen from './src/screens/citizen/HomeScreen';
@@ -19,8 +18,6 @@ import SchedulePickupScreen from './src/screens/citizen/SchedulePickupScreen';
 import ProfileScreen from './src/screens/citizen/ProfileScreen';
 import WasteValidationScreen from './src/screens/citizen/WasteValidationScreen';
 import QRCodeScreen from './src/screens/citizen/QRCodeScreen';
-import SettingsScreen from './src/screens/citizen/SettingsScreen';
-import PickupHistoryScreen from './src/screens/citizen/PickupHistoryScreen';
 
 // Worker screens
 import WorkerHomeScreen from './src/screens/worker/WorkerHomeScreen';
@@ -101,55 +98,57 @@ function WorkerTabs() {
   );
 }
 
-// Navigation Component
-function AppNavigator() {
-  const { isLoggedIn, userType, isLoading } = useAuth();
+// Main App Component
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userType, setUserType] = useState<string | null>(null); // 'citizen' or 'worker'
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const type = await AsyncStorage.getItem('userType');
+      
+      if (token && type) {
+        setIsLoggedIn(true);
+        setUserType(type);
+      }
+    } catch (error) {
+      console.error('Error checking login status:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return null; // Add loading screen component here
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isLoggedIn ? (
-          <>
-            <Stack.Screen name="Landing" component={LandingScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        ) : userType === 'citizen' ? (
-          <>
-            <Stack.Screen name="CitizenMain" component={CitizenTabs} />
-            <Stack.Screen name="WasteValidation" component={WasteValidationScreen} />
-            <Stack.Screen name="QRCode" component={QRCodeScreen} />
-            <Stack.Screen 
-              name="Settings" 
-              component={SettingsScreen}
-              options={{ headerShown: true, headerTitle: 'Settings' }}
-            />
-            <Stack.Screen 
-              name="PickupHistory" 
-              component={PickupHistoryScreen}
-              options={{ headerShown: true, headerTitle: 'Pickup History' }}
-            />
-          </>
-        ) : (
-          <Stack.Screen name="WorkerMain" component={WorkerTabs} />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-
-// Main App Component
-function App() {
-  return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!isLoggedIn ? (
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+            </>
+          ) : userType === 'citizen' ? (
+            <>
+              <Stack.Screen name="CitizenMain" component={CitizenTabs} />
+              <Stack.Screen name="WasteValidation" component={WasteValidationScreen} />
+              <Stack.Screen name="QRCode" component={QRCodeScreen} />
+            </>
+          ) : (
+            <Stack.Screen name="WorkerMain" component={WorkerTabs} />
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
