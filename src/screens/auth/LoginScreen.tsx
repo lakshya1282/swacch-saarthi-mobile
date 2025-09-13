@@ -119,6 +119,21 @@ const LoginScreen: React.FC = () => {
               { text: 'Retry', onPress: handleLogin }
             ]
           );
+        } else if (error.response?.data?.demoMode) {
+          // Demo mode detected - server is running but database is disconnected
+          Alert.alert(
+            'Demo Mode Active',
+            'The server is running in demo mode because the database is not connected. ' +
+            'Authentication was successful with demo credentials, but please contact ' +
+            'the administrator to restore full database functionality.',
+            [
+              { text: 'Continue in Demo Mode', onPress: () => {
+                // The login actually succeeded, just alert the user about demo mode
+                console.log('Continuing with demo mode login');
+              }},
+              { text: 'Retry', onPress: handleLogin }
+            ]
+          );
         } else {
           // Other errors
           Alert.alert(
