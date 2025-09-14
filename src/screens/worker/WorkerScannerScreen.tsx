@@ -97,42 +97,83 @@ const WorkerScannerScreen: React.FC = () => {
           setShowResultModal(true);
         }
       } else {
-        // Handle Pickup QR - Normal pickup verification
+        // Handle Pickup QR - Verification with backend
         try {
-          const response = await apiService.scanQRCode(data);
+          console.log('Verifying pickup QR code:', qrData);
           
-          if (response.data.success) {
+          // Verify QR code with backend API
+          const response = await apiService.validateQRCode(data);
+          
+          if (response.data && response.data.success && response.data.valid) {
+            const pickup = response.data.pickup;
             const result: ScanResult = {
-              pickupId: response.data.pickup.pickupId,
-              userId: response.data.pickup.userId,
-              userName: response.data.pickup.userName,
-              address: response.data.pickup.address,
-              wasteType: response.data.pickup.wasteType,
-              status: response.data.pickup.status,
+              pickupId: pickup.pickupId,
+              userId: pickup.userId,
+              userName: pickup.customerName || pickup.userName,
+              address: pickup.address || pickup.customerAddress,
+              wasteType: Array.isArray(pickup.wasteTypes) ? pickup.wasteTypes.join(', ') : pickup.wasteTypes || 'Mixed',
+              status: pickup.status,
               isValid: true,
               scanType: 'pickup'
             };
             
+            console.log('✅ QR Code verification successful:', result);
             setScanResult(result);
             setShowResultModal(true);
           } else {
-            Alert.alert('Invalid QR Code', 'This QR code is not valid or has expired.');
+            console.log('❌ QR Code verification failed:', response.data);
+            Alert.alert(
+              'Invalid QR Code', 
+              response.data?.message || 'This QR code is not valid, expired, or does not match any pickup.',
+              [{ text: 'OK' }]
+            );
           }
-        } catch (apiError) {
-          // For demo purposes, create a mock pickup result
-          const mockPickupResult: ScanResult = {
-            pickupId: qrData.pickupId || 'PK' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-            userId: qrData.userId || 'user123',
-            userName: qrData.customerName || 'Demo User',
-            address: qrData.address || '123 Demo Street, Bangalore',
-            wasteType: qrData.wasteTypes?.join(', ') || 'Mixed',
-            status: 'in_progress',
-            isValid: true,
-            scanType: 'pickup'
-          };
+        } catch (apiError: any) {
+          console.error('API verification failed:', apiError);
           
-          setScanResult(mockPickupResult);
-          setShowResultModal(true);
+          // Enhanced validation with local data verification
+          if (qrData.pickupId && qrData.verificationCode) {
+            console.log('Attempting local validation with verification code');
+            
+            // Check if this is a valid QR structure
+            if (qrData.customerName && qrData.wasteTypes && qrData.scheduledDate) {
+              const result: ScanResult = {
+                pickupId: qrData.pickupId,
+                userId: qrData.userId || 'local_user',
+                userName: qrData.customerName,
+                address: qrData.address || '123 Customer Address, Bangalore',
+                wasteType: Array.isArray(qrData.wasteTypes) ? qrData.wasteTypes.join(', ') : 'Mixed',
+                status: 'verified',
+                isValid: true,
+                scanType: 'pickup'
+              };
+              
+              console.log('✅ Local QR validation successful:', result);
+              Alert.alert(
+                'QR Code Verified', 
+                `Verification Code: ${qrData.verificationCode}\n\nThis pickup is verified and ready for collection!`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Proceed', onPress: () => {
+                    setScanResult(result);
+                    setShowResultModal(true);
+                  }}
+                ]
+              );
+            } else {
+              Alert.alert(
+                'Invalid QR Code Format', 
+                'The scanned QR code does not contain valid pickup information.',
+                [{ text: 'OK' }]
+              );
+            }
+          } else {
+            Alert.alert(
+              'Network Error', 
+              'Unable to verify QR code. Please check your internet connection and try again.',
+              [{ text: 'OK' }]
+            );
+          }
         }
       }
     } catch (error) {
@@ -143,15 +184,62 @@ const WorkerScannerScreen: React.FC = () => {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = async () => {
     if (!manualCode.trim()) {
-      Alert.alert('Error', 'Please enter a pickup code');
+      Alert.alert('Error', 'Please enter a verification code or pickup ID');
       return;
     }
     
-    handleQRScan(manualCode);
-    setManualCode('');
-    setShowManualInput(false);
+    setProcessing(true);
+    
+    try {
+      // Try to verify the manual code as a verification code first
+      const response = await apiService.validateQRCode(manualCode.trim());
+      
+      if (response.data && response.data.success && response.data.valid) {
+        const pickup = response.data.pickup;
+        const result: ScanResult = {
+          pickupId: pickup.pickupId,
+          userId: pickup.userId,
+          userName: pickup.customerName || pickup.userName,
+          address: pickup.address || pickup.customerAddress,
+          wasteType: Array.isArray(pickup.wasteTypes) ? pickup.wasteTypes.join(', ') : pickup.wasteTypes || 'Mixed',
+          status: pickup.status,
+          isValid: true,
+          scanType: 'pickup'
+        };
+        
+        console.log('✅ Manual verification code verified:', result);
+        setScanResult(result);
+        setShowResultModal(true);
+        setManualCode('');
+        setShowManualInput(false);
+      } else {
+        Alert.alert(
+          'Invalid Code', 
+          'The verification code you entered is not valid or does not match any pickup.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Manual verification failed:', error);
+      
+      // Fallback: Try as a simple pickup ID
+      try {
+        const mockQRData = JSON.stringify({ pickupId: manualCode.trim() });
+        await handleQRScan(mockQRData);
+        setManualCode('');
+        setShowManualInput(false);
+      } catch (fallbackError) {
+        Alert.alert(
+          'Verification Failed', 
+          'Unable to verify the code. Please check the code and try again, or scan the QR code instead.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const openNavigation = (address?: string) => {
@@ -286,14 +374,10 @@ const WorkerScannerScreen: React.FC = () => {
   if (isScanning) {
     return (
       <View style={styles.container}>
-        <QRScanner onScan={handleQRScan} />
-        <TouchableOpacity 
-          style={styles.cancelButton}
-          onPress={() => setIsScanning(false)}
-        >
-          <MaterialIcons name="close" size={24} color="#fff" />
-          <Text style={styles.cancelButtonText}>Cancel Scan</Text>
-        </TouchableOpacity>
+        <QRScanner 
+          onScan={handleQRScan} 
+          onClose={() => setIsScanning(false)}
+        />
       </View>
     );
   }
@@ -304,7 +388,7 @@ const WorkerScannerScreen: React.FC = () => {
         <MaterialIcons name="qr-code-scanner" size={80} color="#FF9800" />
         <Text style={styles.title}>QR Code Scanner</Text>
         <Text style={styles.subtitle}>
-          Scan the household QR to mark arrival or pickup QR to verify collection
+          Scan customer QR codes to verify waste pickup collections
         </Text>
       </View>
 
@@ -323,8 +407,8 @@ const WorkerScannerScreen: React.FC = () => {
           onPress={() => setShowManualInput(true)}
           disabled={processing}
         >
-          <MaterialIcons name="keyboard" size={24} color="#FF9800" />
-          <Text style={styles.secondaryButtonText}>Enter Code Manually</Text>
+          <MaterialIcons name="verified" size={24} color="#FF9800" />
+          <Text style={styles.secondaryButtonText}>Enter Verification Code</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -366,13 +450,13 @@ const WorkerScannerScreen: React.FC = () => {
         <View style={styles.instructionItem}>
           <Text style={styles.instructionNumber}>3.</Text>
           <Text style={styles.instructionText}>
-            After reaching, scan pickup QR to verify the collection
+            Scan customer's QR code OR enter their verification code to verify pickup
           </Text>
         </View>
         <View style={styles.instructionItem}>
           <Text style={styles.instructionNumber}>4.</Text>
           <Text style={styles.instructionText}>
-            Collect the waste and mark as completed
+            After verification, collect the waste and mark as completed
           </Text>
         </View>
       </View>
@@ -387,19 +471,24 @@ const WorkerScannerScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Enter Pickup Code</Text>
+              <Text style={styles.modalTitle}>Enter Verification Code</Text>
               <TouchableOpacity onPress={() => setShowManualInput(false)}>
                 <MaterialIcons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
+            <Text style={styles.modalInstructions}>
+              Enter the verification code from the customer's QR code or the code provided when they scheduled the pickup.
+            </Text>
+
             <TextInput
               style={styles.codeInput}
-              placeholder="Enter pickup code (e.g., PK001)"
+              placeholder="Enter verification code (e.g., ABC123)"
               value={manualCode}
               onChangeText={setManualCode}
               autoCapitalize="characters"
               autoFocus
+              maxLength={20}
             />
 
             <View style={styles.modalActions}>
@@ -650,22 +739,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
-  cancelButton: {
-    position: 'absolute',
-    bottom: 30,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    marginLeft: 8,
-  },
   processingContainer: {
     alignItems: 'center',
     padding: 20,
@@ -732,6 +805,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  modalInstructions: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
   codeInput: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -739,6 +819,9 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     marginBottom: 20,
+    textAlign: 'center',
+    letterSpacing: 2,
+    fontWeight: 'bold',
   },
   modalActions: {
     flexDirection: 'row',

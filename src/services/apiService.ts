@@ -168,10 +168,12 @@ class ApiService {
     try {
       const response = await this.api.get('/pickups');
       const allPickups = response.data?.data || response.data || [];
-      // Filter only pending/scheduled pickups for available tasks
+      // Filter only truly available tasks: pending status AND no assigned worker
       const availableTasks = allPickups.filter((pickup: any) => 
-        pickup.status === 'pending' || pickup.status === 'scheduled'
+        (pickup.status === 'pending' || pickup.status === 'scheduled') && 
+        !pickup.assignedWorkerId
       );
+      console.log(`Found ${availableTasks.length} available tasks out of ${allPickups.length} total pickups`);
       return { ...response, data: availableTasks };
     } catch (error) {
       console.error('Error fetching available tasks:', error);
@@ -231,14 +233,83 @@ class ApiService {
   async getAllPickups() {
     return this.api.get('/pickups');
   }
+  
+  // Check if a specific task is available for assignment
+  async checkTaskAvailability(taskId: string) {
+    try {
+      const response = await this.api.get('/pickups');
+      const allPickups = response.data?.data || response.data || [];
+      const task = allPickups.find((pickup: any) => 
+        pickup.pickupId === taskId || pickup._id === taskId || pickup.id === taskId
+      );
+      
+      if (!task) {
+        return { available: false, reason: 'TASK_NOT_FOUND' };
+      }
+      
+      // Task is available only if it's pending and not assigned to anyone
+      if (task.status === 'pending' && !task.assignedWorkerId) {
+        return { available: true, task };
+      }
+      
+      // Task is already assigned or in progress
+      if (task.assignedWorkerId) {
+        return { 
+          available: false, 
+          reason: 'TASK_ALREADY_ASSIGNED',
+          assignedTo: task.assignedWorkerId,
+          status: task.status
+        };
+      }
+      
+      return { 
+        available: false, 
+        reason: 'TASK_NOT_AVAILABLE',
+        status: task.status 
+      };
+    } catch (error) {
+      console.error('Error checking task availability:', error);
+      return { available: false, reason: 'CHECK_FAILED', error: error.message };
+    }
+  }
 
   async acceptTask(taskId: string) {
+    // First check if task is available
+    const availability = await this.checkTaskAvailability(taskId);
+    if (!availability.available) {
+      throw new Error(`Task acceptance failed: ${availability.reason}`);
+    }
+    
     try {
-      return await this.api.post(`/worker/tasks/${taskId}/accept`);
+      // Get current worker data
+      const userData = await AsyncStorage.getItem('userData');
+      const workerId = userData ? JSON.parse(userData).id : null;
+      const workerName = userData ? JSON.parse(userData).name : null;
+      
+      console.log(`Worker ${workerId} attempting to accept task ${taskId}`);
+      
+      return await this.api.post(`/worker/tasks/${taskId}/accept`, {
+        workerId,
+        workerName,
+        assignedAt: new Date().toISOString()
+      });
     } catch (error) {
       // Fallback: Update pickup status to 'assigned' if worker endpoints don't exist
       console.log('Worker task endpoint not available, using pickup status update');
-      return this.api.put(`/pickups/${taskId}/status`, { status: 'assigned' });
+      
+      // Get current worker data for fallback
+      const userData = await AsyncStorage.getItem('userData');
+      const workerId = userData ? JSON.parse(userData).id : null;
+      const workerName = userData ? JSON.parse(userData).name : null;
+      
+      console.log(`Fallback: Updating pickup ${taskId} status directly for worker ${workerId}`);
+      
+      return this.api.put(`/pickups/${taskId}/status`, { 
+        status: 'assigned',
+        assignedWorkerId: workerId,
+        assignedWorkerName: workerName,
+        assignedAt: new Date().toISOString()
+      });
     }
   }
 

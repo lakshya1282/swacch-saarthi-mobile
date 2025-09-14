@@ -82,18 +82,86 @@ const QRCodeScreen: React.FC = () => {
   const loadPickups = async () => {
     try {
       setLoading(true);
-      const response = await apiService.getPickups();
       
-      if (response.data.success) {
-        const activePickups = response.data.pickups.filter(
-          (pickup: Pickup) => pickup.status !== 'cancelled' && pickup.qrCodeData
-        );
-        setPickups(activePickups);
+      // Load local pickup data first
+      const localPickups: Pickup[] = [];
+      
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const pickupKeys = keys.filter(key => key.startsWith('pickup_'));
         
-        // Auto-select first pickup if available
-        if (activePickups.length > 0 && !selectedPickup) {
-          setSelectedPickup(activePickups[0]);
+        for (const key of pickupKeys) {
+          const pickupData = await AsyncStorage.getItem(key);
+          if (pickupData) {
+            const pickup = JSON.parse(pickupData);
+            if (pickup.qrCodeData && pickup.status !== 'cancelled') {
+              localPickups.push({
+                pickupId: pickup.pickupId,
+                status: pickup.status || 'pending',
+                scheduledDate: pickup.qrCodeData.scheduledDate,
+                timeSlot: pickup.qrCodeData.timeSlot,
+                wasteTypes: pickup.qrCodeData.wasteTypes,
+                estimatedWeight: pickup.qrCodeData.estimatedWeight,
+                qrCodeData: pickup.qrCodeData,
+                createdAt: pickup.createdAt
+              });
+            }
+          }
         }
+      } catch (localError) {
+        console.log('No local pickups found:', localError);
+      }
+      
+      // Try to load from API as well
+      try {
+        const response = await apiService.getPickups();
+        
+        if (response.data && response.data.success) {
+          const apiPickups = (response.data.pickups || response.data.data || []).filter(
+            (pickup: any) => pickup.status !== 'cancelled'
+          ).map((pickup: any) => ({
+            pickupId: pickup.pickupId,
+            status: pickup.status,
+            scheduledDate: pickup.scheduledDate,
+            timeSlot: pickup.timeSlot,
+            wasteTypes: pickup.wasteTypes || [],
+            estimatedWeight: pickup.estimatedWeight,
+            qrCodeData: {
+              pickupId: pickup.pickupId,
+              userId: pickup.userId,
+              customerName: pickup.customerName,
+              wasteTypes: pickup.wasteTypes || [],
+              estimatedWeight: pickup.estimatedWeight,
+              timeSlot: pickup.timeSlot,
+              scheduledDate: pickup.scheduledDate,
+              location: pickup.location || { latitude: 12.9716, longitude: 77.5946 },
+              verificationCode: pickup.verificationCode || 'DEMO123'
+            },
+            createdAt: pickup.createdAt
+          }));
+          
+          // Merge local and API pickups (prefer local data)
+          const allPickups = [...localPickups];
+          apiPickups.forEach((apiPickup: Pickup) => {
+            if (!allPickups.find(local => local.pickupId === apiPickup.pickupId)) {
+              allPickups.push(apiPickup);
+            }
+          });
+          
+          setPickups(allPickups);
+        } else {
+          // Use only local pickups if API fails
+          setPickups(localPickups);
+        }
+      } catch (apiError) {
+        console.log('API call failed, using local pickups only:', apiError);
+        setPickups(localPickups);
+      }
+      
+      // Auto-select first pickup if available
+      const finalPickups = localPickups.length > 0 ? localPickups : [];
+      if (finalPickups.length > 0 && !selectedPickup) {
+        setSelectedPickup(finalPickups[0]);
       }
     } catch (error) {
       console.error('Error loading pickups:', error);

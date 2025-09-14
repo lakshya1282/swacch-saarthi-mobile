@@ -58,9 +58,21 @@ const SchedulePickupScreen: React.FC = () => {
 
   const loadUserData = async () => {
     try {
+      console.log('=== Loading User Data ===');
       const storedUserData = await AsyncStorage.getItem('userData');
+      const authToken = await AsyncStorage.getItem('authToken');
+      const userType = await AsyncStorage.getItem('userType');
+      
+      console.log('Stored userData:', storedUserData);
+      console.log('Auth token exists:', !!authToken);
+      console.log('User type:', userType);
+      
       if (storedUserData) {
-        setUserData(JSON.parse(storedUserData));
+        const parsedUserData = JSON.parse(storedUserData);
+        setUserData(parsedUserData);
+        console.log('Parsed user data:', parsedUserData);
+      } else {
+        console.log('No user data found in AsyncStorage');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -111,11 +123,14 @@ const SchedulePickupScreen: React.FC = () => {
     setLoading(true);
     
     try {
+      console.log('=== Schedule Pickup Debug ===');
+      console.log('User Data:', userData);
+      
       const selectedWastes = wasteTypes.filter(type => type.selected);
       const pickupData = {
         pickupId: generatePickupId(),
         userId: userData?.id || 'guest',
-        customerName: userData ? `${userData.firstName} ${userData.lastName}` : 'Guest User',
+        customerName: userData ? `${userData.name || userData.firstName + ' ' + userData.lastName || 'User'}` : 'Guest User',
         customerPhone: userData?.phone || 'Not provided',
         customerAddress: userData?.address || 'Address not specified',
         customerPincode: userData?.pincode || '',
@@ -134,22 +149,54 @@ const SchedulePickupScreen: React.FC = () => {
         createdAt: new Date().toISOString()
       };
       
+      console.log('Pickup Data to send:', JSON.stringify(pickupData, null, 2));
+      
       const response = await apiService.schedulePickup(pickupData);
       
-      if (response.data.success) {
-        const { pickupId, verificationCode, estimatedArrival } = response.data.data;
+      console.log('API Response:', response.status, response.data);
+      
+      if (response.data && response.data.success) {
+        const { pickupId, verificationCode, estimatedArrival, qrCodeData } = response.data.data;
         
-        // Save verification code locally for user reference
+        // Generate QR code data with verification code
+        const qrData = {
+          pickupId: pickupId,
+          userId: userData?.id || 'guest',
+          customerName: userData ? `${userData.name || userData.firstName + ' ' + userData.lastName || 'User'}` : 'Guest User',
+          wasteTypes: selectedWastes.map(type => type.name),
+          estimatedWeight: formData.estimatedWeight,
+          timeSlot: formData.selectedTimeSlot,
+          scheduledDate: formData.scheduledDate,
+          address: userData?.address || 'Address not specified',
+          verificationCode: verificationCode,
+          location: {
+            latitude: 12.9716,
+            longitude: 77.5946
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        // Save complete pickup data locally with QR code data
         await AsyncStorage.setItem(`pickup_${pickupId}`, JSON.stringify({
           pickupId,
           verificationCode,
-          scheduledDate: estimatedArrival
+          scheduledDate: estimatedArrival,
+          qrCodeData: qrData,
+          status: 'pending',
+          createdAt: new Date().toISOString()
         }));
         
         Alert.alert(
-          'Success!', 
-          `Pickup scheduled successfully!\n\nPickup ID: ${pickupId}\nVerification Code: ${verificationCode}\n\n⚠️ IMPORTANT: Save this verification code!\nThe worker will ask for it when collecting your waste.\n\nEstimated Arrival: ${new Date(estimatedArrival).toLocaleDateString()}`,
+          'Pickup Scheduled Successfully! 🎉', 
+          `Pickup ID: ${pickupId}\n\n✅ QR Code generated for verification\n✅ Verification Code: ${verificationCode}\n\n📱 Your QR code is ready:\n• Go to the QR Code tab to view it\n• Show it to the worker for verification\n• Keep your verification code safe\n\nEstimated Arrival: ${new Date(estimatedArrival).toLocaleDateString()}`,
           [
+            { 
+              text: 'View QR Code', 
+              onPress: () => {
+                // Navigate to QR Code screen
+                // navigation.navigate('QRCode' as never);
+              }
+            },
             { 
               text: 'OK', 
               onPress: () => {
@@ -161,15 +208,28 @@ const SchedulePickupScreen: React.FC = () => {
                   selectedTimeSlot: '',
                   scheduledDate: new Date().toISOString().split('T')[0],
                 });
-              }
+              },
+              style: 'cancel'
             }
           ]
         );
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to schedule pickup');
+        console.log('API returned non-success response:', response.data);
+        Alert.alert('Error', response.data?.message || 'Failed to schedule pickup');
       }
     } catch (error: any) {
       console.error('Pickup scheduling error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL
+        }
+      });
       
       // Save locally as fallback when backend is not available
       try {
@@ -223,6 +283,104 @@ const SchedulePickupScreen: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Development helper function to test connectivity
+  const testConnectivity = async () => {
+    try {
+      console.log('Testing server connectivity...');
+      const response = await fetch('http://192.168.29.93:3000/api/health');
+      const data = await response.json();
+      
+      Alert.alert(
+        'Connection Test', 
+        `Server Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`,
+        [{ text: 'OK' }]
+      );
+      
+      console.log('Server health check:', response.status, data);
+    } catch (error) {
+      console.error('Connectivity test failed:', error);
+      Alert.alert(
+        'Connection Failed', 
+        `Error: ${error.message}\n\nCheck if server is running on http://192.168.29.93:3000`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+  
+  // Development helper to test QR code generation
+  const testQRCodeGeneration = async () => {
+    try {
+      console.log('Testing QR Code generation...');
+      
+      const selectedWastes = wasteTypes.filter(type => type.selected);
+      if (selectedWastes.length === 0) {
+        Alert.alert('Error', 'Please select at least one waste type for the test');
+        return;
+      }
+      
+      const testPickup = {
+        pickupId: `QR_TEST_${Date.now()}`,
+        userId: userData?.id || 'test_user',
+        customerName: userData?.name || 'QR Test User',
+        customerPhone: userData?.phone || '+91 9876543210',
+        customerAddress: userData?.address || 'QR Test Address, Bangalore',
+        wasteTypes: selectedWastes.map(type => type.name),
+        estimatedWeight: formData.estimatedWeight || '3kg',
+        timeSlot: formData.selectedTimeSlot || 'Morning (6:00 AM - 10:00 AM)',
+        scheduledDate: formData.scheduledDate,
+        specialInstructions: 'QR Code test pickup',
+        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      
+      const response = await apiService.schedulePickup(testPickup);
+      
+      if (response.data?.success) {
+        const { pickupId, verificationCode } = response.data.data;
+        
+        // Generate and save QR code data locally
+        const qrData = {
+          pickupId,
+          userId: testPickup.userId,
+          customerName: testPickup.customerName,
+          wasteTypes: testPickup.wasteTypes,
+          estimatedWeight: testPickup.estimatedWeight,
+          timeSlot: testPickup.timeSlot,
+          scheduledDate: testPickup.scheduledDate,
+          address: testPickup.customerAddress,
+          verificationCode,
+          location: { latitude: 12.9716, longitude: 77.5946 },
+          timestamp: new Date().toISOString()
+        };
+        
+        await AsyncStorage.setItem(`pickup_${pickupId}`, JSON.stringify({
+          pickupId,
+          verificationCode,
+          qrCodeData: qrData,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        }));
+        
+        Alert.alert(
+          '✅ QR Code Test Successful!',
+          `Pickup ID: ${pickupId}\nVerification Code: ${verificationCode}\n\n📱 QR Code generated and saved locally!\n\n🔍 You can now:\n• View the QR code in the QR tab\n• Test worker scanning with this verification code\n• Use either QR scan or manual code entry`,
+          [{ text: 'Great!' }]
+        );
+        
+        console.log('✅ QR Test successful:', { pickupId, verificationCode, qrData });
+      } else {
+        throw new Error(response.data?.message || 'Failed to create test pickup');
+      }
+    } catch (error) {
+      console.error('QR test failed:', error);
+      Alert.alert(
+        '❌ QR Test Failed',
+        `Error: ${error.message}\n\nCheck console for details`,
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -328,6 +486,27 @@ const SchedulePickupScreen: React.FC = () => {
             </>
           )}
         </TouchableOpacity>
+        
+        {/* Development Test Buttons */}
+        {__DEV__ && (
+          <View>
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={testConnectivity}
+            >
+              <MaterialIcons name="network-check" size={20} color="#2196F3" />
+              <Text style={styles.testButtonText}>Test Server Connection</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.testButton, { marginTop: 5, backgroundColor: '#FFF3E0', borderColor: '#FF9800' }]}
+              onPress={testQRCodeGeneration}
+            >
+              <MaterialIcons name="qr-code" size={20} color="#FF9800" />
+              <Text style={[styles.testButtonText, { color: '#FF9800' }]}>Test QR Code Generation</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -471,6 +650,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  testButton: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  testButtonText: {
+    color: '#2196F3',
+    fontSize: 14,
+    fontWeight: '600',
     marginLeft: 8,
   },
 });

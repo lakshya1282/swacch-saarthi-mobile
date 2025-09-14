@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator for Testing</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .preset-btn {
+            background-color: #27ae60;
+        }
+        .preset-btn:hover {
+            background-color: #229954;
+        }
+        #qrcode {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            background-color: #f8f9fa;
+        }
+        .qr-info {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .instructions {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 QR Code Generator for Testing</h1>
+        
+        <div class="instructions">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Choose a preset or enter custom data</li>
+                <li>Click "Generate QR Code"</li>
+                <li>Use the generated QR code to test your mobile app scanner</li>
+                <li>Point your device camera at the QR code through the app</li>
+            </ol>
+        </div>
+
+        <div class="form-group">
+            <label>Quick Presets:</label>
+            <button class="preset-btn" onclick="setPreset('simple')">Simple Text</button>
+            <button class="preset-btn" onclick="setPreset('pickup')">Pickup Data</button>
+            <button class="preset-btn" onclick="setPreset('verification')">Verification Code</button>
+            <button class="preset-btn" onclick="setPreset('json')">JSON Format</button>
+        </div>
+
+        <div class="form-group">
+            <label for="dataType">Data Type:</label>
+            <select id="dataType" onchange="updatePlaceholder()">
+                <option value="text">Plain Text</option>
+                <option value="json">JSON Object</option>
+                <option value="url">URL</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="qrData">QR Code Data:</label>
+            <textarea id="qrData" rows="6" placeholder="Enter the data to encode..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <button onclick="generateQR()">Generate QR Code</button>
+            <button onclick="clearQR()">Clear</button>
+            <button onclick="downloadQR()">Download QR</button>
+        </div>
+
+        <div id="qrcode">
+            <p style="color: #7f8c8d;">QR Code will appear here...</p>
+        </div>
+
+        <div id="qrInfo" class="qr-info" style="display: none;">
+            <strong>Generated QR Code Info:</strong>
+            <p><strong>Data:</strong> <span id="qrDataInfo"></span></p>
+            <p><strong>Size:</strong> <span id="qrSizeInfo"></span></p>
+            <p><strong>Type:</strong> <span id="qrTypeInfo"></span></p>
+        </div>
+    </div>
+
+    <script>
+        let currentCanvas = null;
+
+        function setPreset(type) {
+            const dataField = document.getElementById('qrData');
+            const typeField = document.getElementById('dataType');
+            
+            switch(type) {
+                case 'simple':
+                    typeField.value = 'text';
+                    dataField.value = 'TEST_PICKUP_123';
+                    break;
+                case 'pickup':
+                    typeField.value = 'json';
+                    dataField.value = JSON.stringify({
+                        pickupId: "PICKUP_001",
+                        citizenId: "CITIZEN_123",
+                        scheduledDate: "2024-01-20",
+                        wasteType: "household",
+                        address: "123 Main St"
+                    }, null, 2);
+                    break;
+                case 'verification':
+                    typeField.value = 'json';
+                    dataField.value = JSON.stringify({
+                        pickupId: "PICKUP_001",
+                        verificationCode: "VERIFY_ABC123",
+                        timestamp: new Date().toISOString(),
+                        action: "verify_pickup"
+                    }, null, 2);
+                    break;
+                case 'json':
+                    typeField.value = 'json';
+                    dataField.value = JSON.stringify({
+                        type: "waste_pickup",
+                        id: "WP_" + Math.random().toString(36).substr(2, 9),
+                        data: {
+                            citizen: "John Doe",
+                            address: "456 Oak Ave",
+                            pickup_time: "2024-01-20T10:00:00Z",
+                            waste_types: ["recyclable", "organic"]
+                        }
+                    }, null, 2);
+                    break;
+            }
+            updatePlaceholder();
+        }
+
+        function updatePlaceholder() {
+            const dataField = document.getElementById('qrData');
+            const type = document.getElementById('dataType').value;
+            
+            switch(type) {
+                case 'text':
+                    dataField.placeholder = 'Enter plain text (e.g., "PICKUP_123")';
+                    break;
+                case 'json':
+                    dataField.placeholder = 'Enter JSON object (e.g., {"pickupId": "123", "code": "ABC"})';
+                    break;
+                case 'url':
+                    dataField.placeholder = 'Enter URL (e.g., "https://example.com/pickup/123")';
+                    break;
+            }
+        }
+
+        function generateQR() {
+            const data = document.getElementById('qrData').value;
+            const type = document.getElementById('dataType').value;
+            
+            if (!data.trim()) {
+                alert('Please enter some data to encode');
+                return;
+            }
+
+            // Validate JSON if selected
+            if (type === 'json') {
+                try {
+                    JSON.parse(data);
+                } catch (e) {
+                    alert('Invalid JSON format. Please check your syntax.');
+                    return;
+                }
+            }
+
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+
+            QRCode.toCanvas(data, {
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            }, function (error, canvas) {
+                if (error) {
+                    console.error(error);
+                    qrContainer.innerHTML = '<p style="color: red;">Error generating QR code</p>';
+                    return;
+                }
+                
+                currentCanvas = canvas;
+                qrContainer.appendChild(canvas);
+                
+                // Show info
+                document.getElementById('qrDataInfo').textContent = data.substring(0, 100) + (data.length > 100 ? '...' : '');
+                document.getElementById('qrSizeInfo').textContent = '300x300 pixels';
+                document.getElementById('qrTypeInfo').textContent = type.toUpperCase();
+                document.getElementById('qrInfo').style.display = 'block';
+            });
+        }
+
+        function clearQR() {
+            document.getElementById('qrData').value = '';
+            document.getElementById('qrcode').innerHTML = '<p style="color: #7f8c8d;">QR Code will appear here...</p>';
+            document.getElementById('qrInfo').style.display = 'none';
+            currentCanvas = null;
+        }
+
+        function downloadQR() {
+            if (!currentCanvas) {
+                alert('Please generate a QR code first');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = 'test-qr-code.png';
+            link.href = currentCanvas.toDataURL();
+            link.click();
+        }
+
+        // Initialize
+        updatePlaceholder();
+    </script>
+</body>
+</html>
