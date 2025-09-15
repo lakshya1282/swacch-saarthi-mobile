@@ -28,6 +28,22 @@ interface FormData {
 }
 
 const RegisterScreen: React.FC = () => {
+  // Generate unique test data for development
+  const generateTestData = () => {
+    const randomNum = Math.floor(Math.random() * 10000);
+    return {
+      firstName: 'Test',
+      lastName: 'User',
+      email: `testuser${randomNum}@example.com`,
+      phone: `9${Math.floor(Math.random() * 900000000) + 100000000}`,
+      password: 'Test@123',
+      confirmPassword: 'Test@123',
+      address: '123 Test Street, Test City',
+      pincode: '560001',
+      userType: 'citizen' as const,
+    };
+  };
+
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -135,13 +151,19 @@ const RegisterScreen: React.FC = () => {
     setLoading(true);
 
     try {
+      // Remove confirmPassword as backend doesn't need it
+      const { confirmPassword, ...registrationData } = formData;
+      
       const userData = {
-        ...formData,
+        ...registrationData,
         location: {
           latitude: location!.latitude,
           longitude: location!.longitude,
         },
       };
+
+      console.log('Sending registration data:', userData);
+      console.log('Registration URL:', 'http://192.168.29.93:3000/api/auth/register');
 
       // Make API call to register user
       const response = await axios.post('http://192.168.29.93:3000/api/auth/register', userData);
@@ -152,9 +174,33 @@ const RegisterScreen: React.FC = () => {
         
         Alert.alert('Success', 'Registration successful!');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
-      Alert.alert('Error', 'Registration failed. Please try again.');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+          // Check for specific error messages
+          if (errorMessage.includes('already exists')) {
+            errorMessage = 'An account with this email or phone number already exists. Please use different details or login instead.';
+          }
+        } else if (error.response.status === 400) {
+          errorMessage = 'Invalid registration data. Please check your information.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = 'Cannot connect to server. Please check your connection.';
+      }
+      
+      Alert.alert('Registration Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -175,6 +221,15 @@ const RegisterScreen: React.FC = () => {
       </View>
 
       <View style={styles.form}>
+        {/* Development helper - remove in production */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={() => setFormData(generateTestData())}>
+            <Text style={styles.devButtonText}>Fill Test Data (Dev Only)</Text>
+          </TouchableOpacity>
+        )}
+        
         <View style={styles.row}>
           <View style={styles.halfInput}>
             <TextInput
@@ -467,6 +522,18 @@ const styles = StyleSheet.create({
   loginLinkText: {
     color: '#4CAF50',
     fontSize: 16,
+  },
+  devButton: {
+    backgroundColor: '#FF9800',
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  devButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

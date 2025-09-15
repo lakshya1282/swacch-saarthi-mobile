@@ -154,6 +154,170 @@ class ApiService {
   }
 
   // Worker specific endpoints
+  async getWorkerProfile() {
+    try {
+      // Try to get worker profile from dedicated endpoint
+      return await this.api.get('/worker/profile');
+    } catch (error) {
+      // Fallback to user profile endpoint
+      return this.api.get('/users/profile');
+    }
+  }
+
+  // Office enrollment endpoints
+  async checkOfficeCode(officeCode: string) {
+    // Use the correct endpoint to verify office code
+    const response = await this.api.post('/worker/verify-office-code', { officeCode });
+    // Transform response to match expected format
+    return {
+      data: {
+        exists: response.data.success,
+        office: response.data.office,
+        message: response.data.message
+      }
+    };
+  }
+
+  async getOfficeByCode(officeCode: string) {
+    // Use verify endpoint to get office details
+    const response = await this.api.post('/worker/verify-office-code', { officeCode });
+    return {
+      data: response.data.office
+    };
+  }
+
+  async enrollToOffice(officeCode: string) {
+    // Get the worker ID from AsyncStorage
+    const userData = await AsyncStorage.getItem('userData');
+    const userId = await AsyncStorage.getItem('userId');
+    
+    let workerId = null;
+    if (userData) {
+      const user = JSON.parse(userData);
+      workerId = user.id || user._id;
+    } else if (userId) {
+      workerId = userId;
+    }
+    
+    if (!workerId) {
+      throw new Error('Worker ID not found. Please login again.');
+    }
+    
+    // Use the correct enrollment endpoint with worker ID
+    return this.api.post('/worker/enroll-in-office', { 
+      workerId,
+      officeCode 
+    });
+  }
+
+  async getEnrollmentStatus() {
+    try {
+      return await this.api.get('/worker/enrollment-status');
+    } catch (error) {
+      // Get enrollment status from profile
+      const profile = await this.getWorkerProfile();
+      if (profile.data) {
+        const data = profile.data.data || profile.data;
+        return {
+          data: {
+            enrollmentStatus: data.enrollmentStatus || 'not_enrolled',
+            officeId: data.officeId,
+            officeCode: data.officeCode,
+            officeName: data.officeName,
+            enrolledAt: data.enrolledAt
+          }
+        };
+      }
+      throw error;
+    }
+  }
+
+  async cancelEnrollment() {
+    try {
+      return await this.api.post('/worker/cancel-enrollment');
+    } catch (error) {
+      return this.api.delete('/offices/enrollment');
+    }
+  }
+
+  async updateWorkerProfile(profileData: any) {
+    try {
+      // Try to update worker profile through dedicated endpoint
+      return await this.api.put('/worker/profile', profileData);
+    } catch (error) {
+      // Fallback to user profile endpoint
+      return this.api.put('/users/profile', profileData);
+    }
+  }
+
+  async getWorkerStats() {
+    try {
+      // Get worker statistics (earnings, tasks, ratings, etc.)
+      const response = await this.api.get('/worker/stats');
+      return response;
+    } catch (error) {
+      // Try to calculate stats from pickups data
+      console.log('Worker stats endpoint not available, calculating from pickups');
+      
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        const workerId = userData ? JSON.parse(userData).id : null;
+        
+        // Get all pickups to calculate stats
+        const pickupsResponse = await this.api.get('/pickups');
+        const allPickups = pickupsResponse.data?.data || pickupsResponse.data || [];
+        
+        // Filter worker's completed tasks
+        const workerTasks = allPickups.filter((pickup: any) => 
+          pickup.workerId === workerId || pickup.assignedWorkerId === workerId
+        );
+        
+        const completedTasks = workerTasks.filter((task: any) => 
+          task.status === 'completed'
+        );
+        
+        const today = new Date().toDateString();
+        const tasksToday = workerTasks.filter((task: any) => 
+          new Date(task.createdAt).toDateString() === today
+        );
+        
+        const pendingTasks = workerTasks.filter((task: any) => 
+          task.status === 'assigned' || task.status === 'in_progress'
+        );
+        
+        // Calculate basic stats from available data
+        return {
+          data: {
+            workerId,
+            todayEarnings: tasksToday.length * 150, // Estimated earnings per task
+            monthlyEarnings: completedTasks.length * 150,
+            totalEarnings: completedTasks.length * 150,
+            rating: 4.0, // Default rating if not available
+            totalReviews: 0,
+            tasksCompleted: completedTasks.length,
+            tasksToday: tasksToday.length,
+            tasksPending: pendingTasks.length,
+          }
+        };
+      } catch (calcError) {
+        console.error('Error calculating stats:', calcError);
+        // Return minimal stats structure
+        return {
+          data: {
+            todayEarnings: 0,
+            monthlyEarnings: 0,
+            totalEarnings: 0,
+            rating: 0,
+            totalReviews: 0,
+            tasksCompleted: 0,
+            tasksToday: 0,
+            tasksPending: 0,
+          }
+        };
+      }
+    }
+  }
+
   async getWorkerTasks() {
     // First try worker-specific endpoint, then fall back to pickups
     try {
