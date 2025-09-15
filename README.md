@@ -1,355 +1,97 @@
-# 🌱 Waste Management App - Complete Solution
+This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
-A comprehensive waste management mobile application inspired by Zomato's delivery model, designed to revolutionize waste collection in India through technology, training, and community participation.
+# Getting Started
 
-## 📋 Table of Contents
+> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
-- [Overview](#overview)
-- [Features](#features)
-- [System Architecture](#system-architecture)
-- [Installation](#installation)
-- [API Documentation](#api-documentation)
-- [Database Schema](#database-schema)
-- [Contributing](#contributing)
+## Step 1: Start Metro
 
-## 🎯 Overview
+First, you will need to run **Metro**, the JavaScript build tool for React Native.
 
-This app addresses India's waste management challenges by providing:
-- **Citizen Training**: Interactive modules on waste segregation
-- **Smart Scheduling**: Zomato-like pickup scheduling system
-- **AI Validation**: Image-based waste segregation validation
-- **QR Confirmation**: Digital confirmation system for pickups
-- **GPS Tracking**: Real-time location tracking for all users
+To start the Metro dev server, run the following command from the root of your React Native project:
 
-### Problem Statement
+```sh
+# Using npm
+npm start
 
-In FY 2021–22, India generated approximately 1.7 lakh tonnes of municipal solid waste daily, with only 54% being scientifically treated. This app aims to bridge that gap through technology-enabled waste management.
-
-## ✨ Features
-
-### 👥 For Citizens
-- **User Registration** with GPS location capture
-- **Interactive Training** on waste segregation (5 modules with quizzes)
-- **Smart Pickup Scheduling** with time slot selection
-- **Waste Validation** using AI-powered image recognition
-- **QR Code System** for pickup confirmation
-- **Pickup History** and ratings
-- **Profile Management** with location tracking
-
-### 👷 For Workers
-- **Assignment Dashboard** with nearby pickups
-- **Navigation Integration** for efficient routing
-- **QR Scanner** for pickup confirmation
-- **Real-time Status Updates**
-- **Earnings Tracking**
-
-### 🏢 For Administrators
-- **Real-time Monitoring** of all activities
-- **Performance Analytics** and reporting
-- **User Management** (citizens and workers)
-- **Route Optimization** algorithms
-
-## 🏗️ System Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Citizen App    │    │   Worker App    │    │  Admin Panel    │
-│  (React Native)  │    │ (React Native)  │    │    (Web)        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-              ┌─────────────────────────────────────┐
-              │         Backend API                 │
-              │       (Node.js + Express)           │
-              └─────────────────────────────────────┘
-                                 │
-              ┌─────────────────────────────────────┐
-              │        Database Layer               │
-              │        (MongoDB)                    │
-              └─────────────────────────────────────┘
+# OR using Yarn
+yarn start
 ```
 
-### Tech Stack
+## Step 2: Build and run your app
 
-**Frontend (Mobile App)**
-- React Native 0.72.0
-- React Navigation 6.x
-- React Native Maps
-- React Native QR Code Generator/Scanner
-- React Native Image Picker
-- AsyncStorage for local data
+With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
 
-**Backend API**
-- Node.js with Express.js
-- MongoDB with Mongoose ODM
-- JWT Authentication
-- Multer for file uploads
-- bcryptjs for password hashing
+### Android
 
-**Additional Services**
-- AI/ML Service for waste validation (mock implementation included)
-- Push Notifications
-- Real-time location tracking
+```sh
+# Using npm
+npm run android
 
-## 🚀 Installation
-
-### Prerequisites
-- Node.js (v16 or higher)
-- React Native development environment
-- MongoDB (local or Atlas)
-- Android Studio / Xcode for mobile development
-
-### Backend Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd WasteManagementApp
-   ```
-
-2. **Install backend dependencies**
-   ```bash
-   cd server
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   # Create .env file in server directory
-   MONGODB_URI=mongodb://localhost:27017/waste-management
-   JWT_SECRET=your-secret-key
-   NODE_ENV=development
-   PORT=3000
-   ```
-
-4. **Start the backend server**
-   ```bash
-   npm start
-   # or for development
-   npm run dev
-   ```
-
-### Mobile App Setup
-
-1. **Install mobile app dependencies**
-   ```bash
-   # From root directory
-   npm install
-   ```
-
-2. **Install iOS pods (if using iOS)**
-   ```bash
-   cd ios
-   pod install
-   cd ..
-   ```
-
-3. **Start Metro bundler**
-   ```bash
-   npm start
-   ```
-
-4. **Run on device/emulator**
-   ```bash
-   # For Android
-   npm run android
-   
-   # For iOS
-   npm run ios
-   ```
-
-## 📊 Database Schema
-
-### Users Collection
-```javascript
-{
-  _id: ObjectId,
-  firstName: String,
-  lastName: String,
-  email: String,
-  phone: String,
-  password: String (hashed),
-  address: String,
-  pincode: String,
-  userType: "citizen" | "worker" | "admin",
-  location: {
-    latitude: Number,
-    longitude: Number
-  },
-  isActive: Boolean,
-  trainingCompleted: Boolean,
-  totalPickups: Number,
-  rating: {
-    average: Number,
-    count: Number
-  }
-}
+# OR using Yarn
+yarn android
 ```
 
-### Pickups Collection
-```javascript
-{
-  _id: ObjectId,
-  citizenId: ObjectId,
-  workerId: ObjectId,
-  wasteTypes: ["dry", "wet", "hazardous"],
-  estimatedWeight: String,
-  actualWeight: Number,
-  timeSlot: "morning" | "midday" | "afternoon" | "evening",
-  scheduledDate: Date,
-  status: "scheduled" | "assigned" | "completed" | "cancelled",
-  qrConfirmation: String,
-  citizenRating: {
-    rating: Number,
-    feedback: String
-  }
-}
+### iOS
+
+For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+
+The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+
+```sh
+bundle install
 ```
 
-## 🔌 API Documentation
+Then, and every time you update your native dependencies, run:
 
-### Authentication Endpoints
+```sh
+bundle exec pod install
+```
 
-**POST** `/api/auth/register`
-- Register a new user (citizen or worker)
-- Body: `{ firstName, lastName, email, phone, password, address, pincode, userType, location }`
+For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
 
-**POST** `/api/auth/login`
-- User login
-- Body: `{ email, password }`
+```sh
+# Using npm
+npm run ios
 
-### Pickup Endpoints
+# OR using Yarn
+yarn ios
+```
 
-**POST** `/api/pickups/schedule`
-- Schedule a new pickup
-- Headers: `Authorization: Bearer <token>`
-- Body: `{ wasteTypes, estimatedWeight, timeSlot, specialInstructions, scheduledDate }`
+If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
 
-**GET** `/api/pickups/my-pickups`
-- Get user's pickup history
-- Headers: `Authorization: Bearer <token>`
+This is one way to run your app — you can also build it directly from Android Studio or Xcode.
 
-**PUT** `/api/pickups/:id/confirm`
-- Confirm pickup completion
-- Headers: `Authorization: Bearer <token>`
-- Body: `{ qrData, actualWeight }`
+## Step 3: Modify your app
 
-### Training Endpoints
+Now that you have successfully run the app, let's make changes!
 
-**GET** `/api/training/modules`
-- Get all training modules
-- Headers: `Authorization: Bearer <token>`
+Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
 
-**POST** `/api/training/progress`
-- Update training progress
-- Headers: `Authorization: Bearer <token>`
-- Body: `{ moduleId, score, completed }`
+When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
 
-### Waste Validation Endpoints
+- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
+- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
 
-**POST** `/api/waste/validate`
-- Validate waste segregation using image
-- Headers: `Authorization: Bearer <token>`
-- Body: `FormData with image file`
+## Congratulations! :tada:
 
-## 📱 App Screens Overview
+You've successfully run and modified your React Native App. :partying_face:
 
-### Citizen App Screens
-1. **Registration/Login** - User onboarding with location capture
-2. **Home Dashboard** - Quick actions and status overview
-3. **Training Modules** - Interactive learning with quizzes
-4. **Schedule Pickup** - Zomato-like interface for booking
-5. **Waste Validation** - Camera capture and AI validation
-6. **QR Code Screen** - Pickup confirmation system
-7. **Profile** - User settings and history
+### Now what?
 
-### Worker App Screens
-1. **Login** - Worker authentication
-2. **Dashboard** - Available assignments and earnings
-3. **Tasks List** - Assigned pickups with details
-4. **Navigation** - GPS navigation to pickup locations
-5. **QR Scanner** - Scan citizen QR codes
-6. **Profile** - Worker settings and statistics
+- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
+- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
 
-## 🔄 Workflow
+# Troubleshooting
 
-1. **Citizen Registration** → GPS location captured
-2. **Training Completion** → Interactive modules with quizzes
-3. **Waste Preparation** → Photo validation optional
-4. **Pickup Scheduling** → Select time slot and waste types
-5. **Worker Assignment** → Automatic assignment based on location
-6. **Pickup Confirmation** → QR code scanning system
-7. **Rating & Feedback** → Service quality tracking
+If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
 
-## 🌟 Key Innovations
+# Learn More
 
-1. **Gamified Learning** - Interactive training modules with progress tracking
-2. **AI Validation** - Computer vision for waste segregation verification
-3. **Location Intelligence** - GPS-based worker assignment optimization
-4. **Digital Confirmation** - QR code system eliminates manual verification
-5. **Community Engagement** - Rating system encourages quality service
+To learn more about React Native, take a look at the following resources:
 
-## 🔒 Security Features
-
-- JWT-based authentication
-- Password hashing with bcrypt
-- Input validation and sanitization
-- File upload restrictions
-- Rate limiting on API endpoints
-
-## 📈 Scalability Considerations
-
-- Microservices architecture ready
-- Database indexing for performance
-- CDN integration for image storage
-- Load balancing capabilities
-- Horizontal scaling support
-
-## 🛠️ Development Status
-
-### ✅ Completed Features
-- User registration with GPS tracking
-- Interactive training system with quizzes
-- Zomato-like pickup scheduling interface
-- AI-based waste validation system
-- QR code generation and scanning
-- Complete backend API with authentication
-- MongoDB database schema and models
-
-### 🚧 In Progress / Future Enhancements
-- Worker mobile app interface
-- Admin web dashboard
-- Real-time push notifications
-- Advanced analytics and reporting
-- Payment integration
-- Multi-language support
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support
-
-For support and questions:
-- Email: support@wastemanagement.app
-- Phone: +91 12345 67890
-- Documentation: [docs.wastemanagement.app](https://docs.wastemanagement.app)
-
-## 🙏 Acknowledgments
-
-- Inspired by India's waste management challenges
-- Design patterns from successful delivery apps like Zomato
-- Community feedback and sustainable development goals
-
----
-
-**Together, let's build a cleaner and sustainable India! 🇮🇳**
+- [React Native Website](https://reactnative.dev) - learn more about React Native.
+- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
+- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
+- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
+- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
