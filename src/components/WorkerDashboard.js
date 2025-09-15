@@ -112,23 +112,82 @@ const WorkerDashboard = () => {
     setError(null);
     
     try {
-      // Try to fetch from API first
+      // Try to fetch worker-specific tasks from the new endpoint first
       if (token) {
         try {
-          const response = await axios.get(
-            `http://localhost:3000/api/worker/assignments/${workerId}`,
+          // First try the new worker-specific tasks endpoint
+          const tasksResponse = await axios.get(
+            `http://localhost:3000/api/pickups/worker/${workerId}/tasks`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           
-          if (response.data && response.data.assignments) {
-            console.log('API returned assignments:', response.data.assignments.length); // Debug log
-            setAssignments(response.data.assignments);
-            updateStats(response.data.assignments);
+          if (tasksResponse.data && tasksResponse.data.success) {
+            console.log('Worker tasks API returned:', tasksResponse.data.data.length, 'tasks'); // Debug log
+            
+            // Transform the tasks data to match the assignment format expected by the component
+            const workerTasks = tasksResponse.data.data.map(task => ({
+              _id: task._id || task.pickupId,
+              pickupId: task.pickupId,
+              location: task.pickupLocation || task.location,
+              address: task.customerAddress || task.pickupLocation?.address || 'Address not specified',
+              wasteTypes: task.wasteTypes || [],
+              timeSlot: task.timeSlot || 'Not specified',
+              customerName: task.customerName || 'Unknown',
+              customerPhone: task.customerPhone || 'N/A',
+              customerAddress: task.customerAddress || 'Address not specified',
+              customerPincode: task.customerPincode || task.pincode || '000000',
+              status: task.status,
+              statusLabel: task.statusLabel,
+              statusColor: task.statusColor,
+              estimatedWeight: task.estimatedWeight || 'N/A',
+              specialInstructions: task.specialInstructions || 'None',
+              scheduledDate: task.scheduledDate || task.createdAt,
+              createdAt: task.createdAt,
+              assignedAt: task.assignedAt,
+              completedAt: task.completedAt,
+              timeAgo: task.timeAgo,
+              assignedTimeAgo: task.assignedTimeAgo,
+              completedTimeAgo: task.completedTimeAgo
+            }));
+            
+            setAssignments(workerTasks);
+            
+            // Update stats from the API response if available
+            if (tasksResponse.data.stats) {
+              const apiStats = tasksResponse.data.stats;
+              setStats({
+                todayPickups: apiStats.todayTasks || 0,
+                completedToday: apiStats.completed || 0,
+                totalEarnings: (apiStats.completed || 0) * 50, // ₹50 per pickup
+                rating: 4.5 + (Math.random() * 0.5) // Random rating between 4.5-5.0
+              });
+            } else {
+              updateStats(workerTasks);
+            }
+            
             setLoading(false);
             return;
           }
-        } catch (apiError) {
-          console.log('API call failed, using local data:', apiError);
+        } catch (tasksApiError) {
+          console.log('Worker tasks API failed, trying fallback endpoint:', tasksApiError.message);
+          
+          // Fallback to the original assignments endpoint
+          try {
+            const response = await axios.get(
+              `http://localhost:3000/api/worker/assignments/${workerId}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            if (response.data && response.data.assignments) {
+              console.log('Fallback API returned assignments:', response.data.assignments.length); // Debug log
+              setAssignments(response.data.assignments);
+              updateStats(response.data.assignments);
+              setLoading(false);
+              return;
+            }
+          } catch (fallbackError) {
+            console.log('Fallback API also failed:', fallbackError.message);
+          }
         }
       }
       
@@ -618,6 +677,7 @@ const WorkerDashboard = () => {
             <li><Link to="/worker">Dashboard</Link></li>
             <li><Link to="/worker/my-works">My Works</Link></li>
             <li><Link to="/worker/find-works">Find Works</Link></li>
+            <li><Link to="/worker/profile">Profile</Link></li>
             <li>
               <span style={{color: '#FF9800', fontWeight: 'bold'}}>
                 👷 {worker?.firstName || 'Worker'}
@@ -706,12 +766,12 @@ const WorkerDashboard = () => {
           </div>
         </div>
 
-        {/* My Works Section - List All Accepted Pickups */}
+        {/* My Tasks Section - List All Tasks Linked to This Worker */}
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
-              <h2 style={{ margin: '0', color: '#333' }}>📦 My Works</h2>
-              <p style={{ margin: '5px 0 0 0', color: '#666' }}>All your accepted pickups</p>
+              <h2 style={{ margin: '0', color: '#333' }}>📋 My Tasks</h2>
+              <p style={{ margin: '5px 0 0 0', color: '#666' }}>Tasks assigned to you (excluding available tasks)</p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <span style={{ 
@@ -730,10 +790,10 @@ const WorkerDashboard = () => {
           
           {assignments.filter(a => a.status === 'in-progress' || a.status === 'assigned').length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-              <h3>💼 No active works!</h3>
-              <p>You haven't accepted any pickup requests yet.</p>
+              <h3>📋 No active tasks!</h3>
+              <p>You don't have any tasks assigned to you at the moment.</p>
               <Link to="/worker/find-works" className="button" style={{ marginTop: '20px', display: 'inline-block' }}>
-                Find New Works
+                Find Available Tasks
               </Link>
             </div>
           ) : (
@@ -1098,12 +1158,99 @@ const WorkerDashboard = () => {
           </div>
         </div>
 
-        {/* Worker Status Notice */}
-        <div className="card" style={{ background: '#E8F5E8', border: '1px solid #4CAF50' }}>
-          <h3 style={{ color: '#2E7D32', margin: '0 0 10px 0' }}>✅ Worker Dashboard Active</h3>
-          <p style={{ margin: '0', color: '#1B5E20' }}>
-            Welcome {worker?.firstName}! You are logged in as a waste collection worker. Complete assignments to earn money and improve your rating.
-          </p>
+        {/* Worker Status and Office Enrollment Notice */}
+        <div className="card" style={{ 
+          background: worker?.officeId ? '#E8F5E8' : '#FFF3E0', 
+          border: worker?.officeId ? '1px solid #4CAF50' : '1px solid #FF9800' 
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
+            <div>
+              <h3 style={{ 
+                color: worker?.officeId ? '#2E7D32' : '#F57C00', 
+                margin: '0 0 10px 0' 
+              }}>
+                {worker?.officeId ? '✅ Enrolled Worker Dashboard' : '⚠️ Worker Dashboard (Not Enrolled)'}
+              </h3>
+              <p style={{ 
+                margin: '0', 
+                color: worker?.officeId ? '#1B5E20' : '#E65100' 
+              }}>
+                Welcome {worker?.firstName}! 
+                {worker?.officeId ? 
+                  `You are enrolled in ${worker.officeId?.officeName || 'an office'} and can track your performance metrics.` :
+                  'Enroll in an office to start tracking your performance and earning incentives.'
+                }
+              </p>
+            </div>
+            
+            {!worker?.officeId && (
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Link 
+                  to="/worker/profile" 
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2196F3',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '5px',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  🏢 Enroll Now
+                </Link>
+              </div>
+            )}
+          </div>
+          
+          {worker?.officeId && (
+            <div style={{
+              marginTop: '15px',
+              padding: '15px',
+              background: 'rgba(76, 175, 80, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(76, 175, 80, 0.3)'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                <div>
+                  <strong style={{ color: '#2E7D32' }}>Office:</strong>
+                  <p style={{ margin: '5px 0', fontSize: '14px' }}>
+                    {worker.officeId.officeName || 'Loading...'}
+                  </p>
+                </div>
+                
+                <div>
+                  <strong style={{ color: '#2E7D32' }}>Code:</strong>
+                  <p style={{ margin: '5px 0', fontSize: '14px', fontFamily: 'monospace' }}>
+                    {worker.officeCode}
+                  </p>
+                </div>
+                
+                <div>
+                  <strong style={{ color: '#2E7D32' }}>Enrolled:</strong>
+                  <p style={{ margin: '5px 0', fontSize: '14px' }}>
+                    {new Date(worker.enrolledAt).toLocaleDateString()}
+                  </p>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Link 
+                    to="/worker/performance" 
+                    style={{
+                      padding: '6px 12px',
+                      background: '#4CAF50',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '4px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    📊 View Performance
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

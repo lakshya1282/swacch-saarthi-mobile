@@ -19,6 +19,8 @@ import MyPickupsScreen from './components/MyPickupsScreen';
 import ProtectedRoute from './components/ProtectedRoute';
 import MyWorks from './components/MyWorks';
 import FindWorks from './components/FindWorks';
+import WorkerProfile from './components/WorkerProfile';
+import WorkerPerformance from './components/WorkerPerformance';
 
 const App = () => {
   // Initialize sync service on app start
@@ -55,6 +57,8 @@ const App = () => {
           <Route path="/worker-dashboard" element={<ProtectedRoute requireWorker={true}><WorkerDashboard /></ProtectedRoute>} />
           <Route path="/worker/my-works" element={<ProtectedRoute requireWorker={true}><MyWorks /></ProtectedRoute>} />
           <Route path="/worker/find-works" element={<ProtectedRoute requireWorker={true}><FindWorks /></ProtectedRoute>} />
+          <Route path="/worker/profile" element={<ProtectedRoute requireWorker={true}><WorkerProfile /></ProtectedRoute>} />
+          <Route path="/worker/performance" element={<ProtectedRoute requireWorker={true}><WorkerPerformance /></ProtectedRoute>} />
         </Routes>
       </div>
     </Router>

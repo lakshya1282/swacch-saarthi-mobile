@@ -304,64 +304,52 @@ pickupSchema.statics.findNearbyPickups = function(latitude, longitude, maxDistan
 
 // Static method for atomic task acceptance with race condition prevention
 pickupSchema.statics.acceptTaskAtomically = async function(taskId, workerId, workerName) {
-  const session = await this.db.startSession();
-  
   try {
-    return await session.withTransaction(async () => {
-      // Find the pickup and ensure it's still available
-      const pickup = await this.findOne({
-        $or: [
-          { _id: taskId },
-          { pickupId: taskId }
-        ],
+    // Build query based on taskId type
+    let query;
+    const isObjectId = /^[a-f\d]{24}$/i.test(taskId);
+    
+    if (isObjectId) {
+      query = { _id: taskId };
+    } else {
+      query = { pickupId: taskId };
+    }
+    
+    // Use findOneAndUpdate with atomic conditions to prevent race conditions
+    // This is atomic even without transactions in single MongoDB instance
+    const updateResult = await this.findOneAndUpdate(
+      {
+        ...query,
         status: { $in: ['scheduled', 'pending'] }, // Only accept if still pending
         workerId: null // Ensure no worker is already assigned
-      }).session(session);
-      
-      if (!pickup) {
-        // Task not found or already assigned
-        return {
-          success: false,
-          error: 'TASK_NOT_AVAILABLE',
-          message: 'This task is no longer available or has already been accepted by another worker.'
-        };
+      },
+      {
+        status: 'assigned',
+        workerId: workerId,
+        assignedAt: new Date(),
+        assignedWorkerName: workerName // Store worker name for display purposes
+      },
+      {
+        new: true, // Return updated document
+        runValidators: true // Run schema validation
       }
-      
-      // Atomically update the pickup with worker assignment
-      const updateResult = await this.findOneAndUpdate(
-        {
-          _id: pickup._id,
-          status: { $in: ['scheduled', 'pending'] },
-          workerId: null
-        },
-        {
-          status: 'assigned',
-          workerId: workerId,
-          assignedAt: new Date(),
-          // Store worker name for display purposes
-          assignedWorkerName: workerName
-        },
-        {
-          new: true,
-          session: session
-        }
-      );
-      
-      if (!updateResult) {
-        // Race condition: task was accepted by another worker between our checks
-        return {
-          success: false,
-          error: 'RACE_CONDITION',
-          message: 'Another worker has just accepted this task. Please try a different task.'
-        };
-      }
-      
+    );
+    
+    if (!updateResult) {
+      // Task not found, already assigned, or race condition occurred
       return {
-        success: true,
-        pickup: updateResult,
-        message: 'Task accepted successfully!'
+        success: false,
+        error: 'TASK_NOT_AVAILABLE',
+        message: 'This task is no longer available or has already been accepted by another worker.'
       };
-    });
+    }
+    
+    return {
+      success: true,
+      pickup: updateResult,
+      message: 'Task accepted successfully!'
+    };
+    
   } catch (error) {
     console.error('Error in atomic task acceptance:', error);
     return {
@@ -369,18 +357,23 @@ pickupSchema.statics.acceptTaskAtomically = async function(taskId, workerId, wor
       error: 'DATABASE_ERROR',
       message: 'Failed to accept task due to database error. Please try again.'
     };
-  } finally {
-    await session.endSession();
   }
 };
 
 // Static method to check if a task is still available
 pickupSchema.statics.isTaskAvailable = function(taskId) {
+  // Check if taskId is a valid MongoDB ObjectId (24 hex chars)
+  const isObjectId = /^[a-f\d]{24}$/i.test(taskId);
+  
+  let query;
+  if (isObjectId) {
+    query = { _id: taskId };
+  } else {
+    query = { pickupId: taskId };
+  }
+  
   return this.findOne({
-    $or: [
-      { _id: taskId },
-      { pickupId: taskId }
-    ],
+    ...query,
     status: { $in: ['scheduled', 'pending'] },
     workerId: null
   });

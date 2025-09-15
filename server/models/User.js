@@ -132,6 +132,28 @@ const userSchema = new mongoose.Schema({
     longitude: Number,
     updatedAt: Date
   },
+  // Office enrollment fields (for workers)
+  officeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Office',
+    required: false
+  },
+  officeCode: {
+    type: String,
+    uppercase: true,
+    trim: true,
+    required: false
+  },
+  enrollmentStatus: {
+    type: String,
+    enum: ['not_enrolled', 'enrolled', 'pending_approval'],
+    default: 'not_enrolled',
+    index: true
+  },
+  enrolledAt: {
+    type: Date,
+    required: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
