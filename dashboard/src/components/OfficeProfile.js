@@ -15,10 +15,6 @@ const OfficeProfile = ({ authToken, officeData, operatorData }) => {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({});
 
-  useEffect(() => {
-    loadOfficeProfile();
-  }, []);
-
   const loadOfficeProfile = async () => {
     try {
       setLoading(true);
@@ -85,6 +81,57 @@ const OfficeProfile = ({ authToken, officeData, operatorData }) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOfficeProfile();
+  }, []);
+  
+  // Generate QR code for attendance
+  useEffect(() => {
+    if (profileData && profileData.officeCode) {
+      generateAttendanceQR();
+    }
+  }, [profileData]);
+  
+  const generateAttendanceQR = () => {
+    const qrContainer = document.getElementById('attendance-qr-code');
+    if (qrContainer && window.QRious) {
+      // Clear existing QR code
+      qrContainer.innerHTML = '';
+      
+      const attendanceCode = profileData?.attendanceCode || `ATT-${profileData?.officeCode || officeData?.officeCode}`;
+      const qrData = {
+        type: 'attendance',
+        officeCode: profileData?.officeCode || officeData?.officeCode,
+        attendanceCode: attendanceCode,
+        officeName: profileData?.officeName || officeData?.officeName,
+        timestamp: Date.now()
+      };
+      
+      // Create canvas element for QR code
+      const canvas = document.createElement('canvas');
+      qrContainer.appendChild(canvas);
+      
+      // Generate QR code
+      new window.QRious({
+        element: canvas,
+        value: JSON.stringify(qrData),
+        size: 120,
+        background: 'white',
+        foreground: 'black',
+        level: 'M'
+      });
+      
+      // Hide fallback SVG
+      const fallback = qrContainer.nextElementSibling;
+      if (fallback && fallback.classList.contains('qr-fallback')) {
+        fallback.style.display = 'none';
+      }
+    } else {
+      // Fallback: show the SVG placeholder
+      console.warn('QRious library not available, showing fallback QR code');
     }
   };
 
@@ -261,6 +308,79 @@ const OfficeProfile = ({ authToken, officeData, operatorData }) => {
               <div className="stat-content">
                 <span className="stat-number">{enrollmentStats.pendingApplications}</span>
                 <span className="stat-label">Pending Approvals</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Attendance QR Code Section */}
+        <div className="attendance-qr-card">
+          <div className="card-header">
+            <h2>Attendance QR Code</h2>
+            <div className="qr-status">
+              <span className="status-badge active">Active</span>
+            </div>
+          </div>
+          
+          <div className="qr-code-display">
+            <div className="qr-container">
+              <div className="qr-code-placeholder">
+                <div id="attendance-qr-code"></div>
+                <div className="qr-fallback">
+                  <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                    <rect width="120" height="120" fill="white" stroke="#e5e7eb" strokeWidth="2"/>
+                    <rect x="10" y="10" width="20" height="20" fill="#000"/>
+                    <rect x="40" y="10" width="10" height="10" fill="#000"/>
+                    <rect x="60" y="10" width="10" height="10" fill="#000"/>
+                    <rect x="90" y="10" width="20" height="20" fill="#000"/>
+                    <rect x="10" y="40" width="10" height="10" fill="#000"/>
+                    <rect x="90" y="40" width="10" height="10" fill="#000"/>
+                    <rect x="40" y="50" width="40" height="20" fill="#000"/>
+                    <rect x="10" y="90" width="20" height="20" fill="#000"/>
+                    <rect x="50" y="90" width="10" height="10" fill="#000"/>
+                    <rect x="90" y="90" width="20" height="20" fill="#000"/>
+                  </svg>
+                </div>
+              </div>
+              
+              <div className="qr-info">
+                <div className="attendance-code">
+                  <span className="code-label">Attendance Code:</span>
+                  <span className="code-value">{profile.attendanceCode || `ATT-${officeCode}`}</span>
+                  <button 
+                    className="copy-btn-small"
+                    onClick={() => {
+                      const attendanceCode = profile.attendanceCode || `ATT-${officeCode}`;
+                      navigator.clipboard.writeText(attendanceCode);
+                    }}
+                  >
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+                      <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="qr-actions">
+                  <button className="btn btn-outline btn-sm">Download QR</button>
+                  <button className="btn btn-primary btn-sm">Print QR</button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="qr-instructions">
+              <h4>How workers mark attendance:</h4>
+              <ol>
+                <li>Open the Sahayak Sarthi Worker app</li>
+                <li>Tap on "Mark Attendance" or QR scanner</li>
+                <li>Scan this QR code when arriving at work</li>
+                <li>Attendance will be automatically recorded</li>
+              </ol>
+              <div className="qr-note">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                <span>Place this QR code at the office entrance for easy scanning</span>
               </div>
             </div>
           </div>

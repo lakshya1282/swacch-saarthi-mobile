@@ -15,11 +15,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 interface QRScannerProps {
   onScan: (data: string) => void;
   onClose: () => void;
+  scanType?: 'pickup' | 'attendance' | 'all'; // New prop to specify scan type
 }
 
 const { width, height } = Dimensions.get('window');
 
-const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
+const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, scanType = 'all' }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(true);
   const [scanned, setScanned] = useState(false);
@@ -32,6 +33,38 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     setIsScanning(false);
     
     console.log(`QR Code scanned! Type: ${type}, Data:`, data);
+    
+    // Validate scan type if specified
+    if (scanType !== 'all') {
+      try {
+        const qrData = JSON.parse(data);
+        if (scanType === 'attendance' && qrData.type !== 'attendance') {
+          Alert.alert(
+            'Wrong QR Code',
+            'Please scan an attendance QR code from your office dashboard.',
+            [{ text: 'OK', onPress: resetScanner }]
+          );
+          return;
+        } else if (scanType === 'pickup' && qrData.type === 'attendance') {
+          Alert.alert(
+            'Wrong QR Code',
+            'Please scan a pickup verification QR code from the customer.',
+            [{ text: 'OK', onPress: resetScanner }]
+          );
+          return;
+        }
+      } catch (parseError) {
+        // If not JSON, continue with normal processing for pickup IDs
+        if (scanType === 'attendance') {
+          Alert.alert(
+            'Invalid QR Code',
+            'Please scan an attendance QR code from your office dashboard.',
+            [{ text: 'OK', onPress: resetScanner }]
+          );
+          return;
+        }
+      }
+    }
     
     // Vibrate to indicate successful scan
     // Vibration.vibrate(100);
@@ -110,8 +143,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
             </View>
             <View style={styles.bottomOverlay}>
               <Text style={styles.instructionText}>
-                🔍 Scan the QR code from customer's phone{"\n"}
-                💡 Make sure the code is clearly visible
+                {scanType === 'attendance' ? (
+                  '🕐 Scan the office attendance QR code\n💼 Available on your office dashboard'
+                ) : scanType === 'pickup' ? (
+                  '🔍 Scan the QR code from customer\'s phone\n💡 Make sure the code is clearly visible'
+                ) : (
+                  '📱 Position QR code within the frame\n💡 Make sure the code is clearly visible'
+                )}
               </Text>
             </View>
           </View>

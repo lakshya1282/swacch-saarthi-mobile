@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Dashboard.css';
 import OfficeProfile from './OfficeProfile';
+import WorkerAttendanceModal from './WorkerAttendanceModal';
+import socketService from '../services/socketService';
 
 const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
   const [loading, setLoading] = useState(true);
@@ -16,7 +18,19 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
   const [workersData, setWorkersData] = useState([]);
   const [citizenRequests, setCitizenRequests] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [attendanceStats, setAttendanceStats] = useState({
+    totalWorkers: 0,
+    presentToday: 0,
+    absentToday: 0,
+    attendanceRate: 0,
+    earlyArrivals: 0,
+    lateArrivals: 0
+  });
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [error, setError] = useState('');
+  const [selectedWorkerForAttendance, setSelectedWorkerForAttendance] = useState(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -94,7 +108,39 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
           console.warn('Fallback workers endpoint failed:', error.message);
         }
       }
-
+      
+      // Load attendance data if we're on attendance tab or need it for dashboard
+      if (activeTab === 'attendance' || activeTab === 'dashboard') {
+        try {
+          const attendanceResponse = await fetch(
+            `http://localhost:3000/api/dashboard/attendance/${officeData.officeCode}?date=${selectedDate}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${authToken}`
+              }
+            }
+          );
+          
+          if (attendanceResponse.ok) {
+            const attendanceResult = await attendanceResponse.json();
+            if (attendanceResult.success) {
+              setAttendanceData(attendanceResult.data.attendance || []);
+              setAttendanceStats(attendanceResult.data.stats || {
+                totalWorkers: 0,
+                presentToday: 0,
+                absentToday: 0,
+                attendanceRate: 0,
+                earlyArrivals: 0,
+                lateArrivals: 0
+              });
+              console.log(`✅ Loaded attendance data for ${selectedDate}`);
+            }
+          }
+        } catch (error) {
+          console.warn('Attendance data loading failed:', error.message);
+        }
+      }
+      
       // Load citizen requests (mock data for now)
       setCitizenRequests([
         { id: 1, name: 'John Doe', location: 'Sector 1, Block A', scheduledTime: '10:30 AM', status: 'pending', assignedWorker: 'Not Assigned' },
@@ -115,14 +161,65 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
     } finally {
       setLoading(false);
     }
-  }, [authToken, officeData._id, officeData.officeCode]);
+  }, [authToken, officeData._id, officeData.officeCode, activeTab, selectedDate]);
 
   useEffect(() => {
     loadDashboardData();
-  }, [loadDashboardData]);
+    
+    // Initialize socket connection
+    if (officeData?.officeCode && authToken) {
+      socketService.initialize(officeData.officeCode, authToken, operatorData?._id);
+      
+      // Setup real-time event listeners
+      socketService.on('worker-enrolled', (data) => {
+        console.log('New worker enrolled:', data);
+        // Reload workers data
+        loadDashboardData();
+      });
+      
+      socketService.on('attendance-update', (data) => {
+        console.log('Attendance update:', data);
+        // Reload attendance data if on attendance tab
+        if (activeTab === 'attendance') {
+          loadDashboardData();
+        }
+      });
+      
+      socketService.on('pickup-completed', (data) => {
+        console.log('Pickup completed:', data);
+        // Update overview stats
+        setOverviewData(prev => ({
+          ...prev,
+          completedPickups: prev.completedPickups + 1,
+          totalWasteCollected: prev.totalWasteCollected + (data.actualWeight || 0),
+          totalIncentivesEarned: prev.totalIncentivesEarned + (data.incentiveEarned || 0)
+        }));
+      });
+      
+      socketService.on('worker-location', (data) => {
+        console.log('Worker location update:', data);
+        // Update worker location on map if implemented
+      });
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      socketService.disconnect();
+    };
+  }, [loadDashboardData, officeData, authToken, operatorData, activeTab]);
 
   const handleRefresh = () => {
     loadDashboardData();
+  };
+  
+  const openWorkerAttendance = (worker) => {
+    setSelectedWorkerForAttendance(worker);
+    setShowAttendanceModal(true);
+  };
+  
+  const closeWorkerAttendance = () => {
+    setShowAttendanceModal(false);
+    setSelectedWorkerForAttendance(null);
   };
 
   const renderTabContent = () => {
@@ -520,6 +617,144 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
           </div>
         );
         
+      case 'attendance':
+        return (
+          <div className="attendance-tab">
+            <div className="page-header">
+              <h1>Attendance Management</h1>
+              <p>View and track individual worker attendance history</p>
+              <button className="btn btn-primary" onClick={handleRefresh}>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+                Refresh Data
+              </button>
+            </div>
+            
+            {/* Attendance Overview Statistics */}
+            <div className="attendance-overview-stats">
+              <div className="stat-card present">
+                <div className="stat-icon present">
+                  <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <h3>Total Workers</h3>
+                  <div className="stat-number">{workersData.length}</div>
+                  <div className="stat-change neutral">Enrolled workers</div>
+                </div>
+              </div>
+              
+              <div className="stat-card rate">
+                <div className="stat-icon rate">
+                  <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
+                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <h3>Today's Present</h3>
+                  <div className="stat-number">{attendanceStats.presentToday}</div>
+                  <div className="stat-change positive">
+                    {attendanceStats.totalWorkers > 0 ? 
+                      Math.round((attendanceStats.presentToday / attendanceStats.totalWorkers) * 100) : 0}% attendance
+                  </div>
+                </div>
+              </div>
+              
+              <div className="stat-card late">
+                <div className="stat-icon late">
+                  <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+                <div className="stat-content">
+                  <h3>Late Arrivals</h3>
+                  <div className="stat-number">{attendanceStats.lateArrivals}</div>
+                  <div className="stat-change warning">Today</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Workers List with Attendance Buttons */}
+            <div className="workers-attendance-section">
+              <div className="section-header">
+                <h2>Worker Attendance Records</h2>
+                <p>Click "Attendance" to view individual worker attendance history</p>
+              </div>
+              
+              {workersData.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">
+                    <svg width="48" height="48" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                    </svg>
+                  </div>
+                  <h3>No Workers Found</h3>
+                  <p>No workers are currently enrolled in this office.</p>
+                  <p>Workers can enroll using office code: <strong>{officeData.officeCode}</strong></p>
+                </div>
+              ) : (
+                <div className="workers-attendance-grid">
+                  {workersData.map(worker => (
+                    <div key={worker._id} className="worker-attendance-card">
+                      <div className="worker-card-header">
+                        <div className="worker-avatar-large">
+                          {worker.name ? worker.name[0] : (worker.firstName ? worker.firstName[0] : 'W')}
+                        </div>
+                        <div className="worker-basic-info">
+                          <h3 className="worker-name">
+                            {worker.name || `${worker.firstName || ''} ${worker.lastName || ''}`.trim() || 'Unknown Worker'}
+                          </h3>
+                          <div className="worker-id">
+                            {worker.workerId || worker.employeeId || `ID: ${worker._id.substring(0, 8)}`}
+                          </div>
+                          <span className={`status-badge ${worker.status?.toLowerCase() || 'off-duty'}`}>
+                            {worker.status?.replace('_', ' ') || 'OFF DUTY'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="worker-card-details">
+                        <div className="detail-row">
+                          <span className="detail-label">Email:</span>
+                          <span className="detail-value">{worker.email || 'N/A'}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Phone:</span>
+                          <span className="detail-value">{worker.phone || 'N/A'}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Enrolled:</span>
+                          <span className="detail-value">
+                            {worker.enrolledAt ? new Date(worker.enrolledAt).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="worker-attendance-actions">
+                        <button 
+                          className="btn btn-primary btn-attendance"
+                          onClick={() => openWorkerAttendance(worker)}
+                        >
+                          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
+                          </svg>
+                          View Attendance
+                        </button>
+                        <button className="btn btn-sm btn-outline">
+                          View Profile
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+        
       case 'profile':
         return (
           <OfficeProfile
@@ -705,6 +940,16 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
             </div>
             
             <div 
+              className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('attendance')}
+            >
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
+              </svg>
+              Attendance
+            </div>
+            
+            <div 
               className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} 
               onClick={() => setActiveTab('profile')}
             >
@@ -765,6 +1010,15 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
           </div>
         </div>
       </div>
+      
+      {/* Worker Attendance Modal */}
+      <WorkerAttendanceModal
+        isOpen={showAttendanceModal}
+        onClose={closeWorkerAttendance}
+        worker={selectedWorkerForAttendance}
+        authToken={authToken}
+        officeCode={officeData.officeCode}
+      />
     </div>
   );
 };

@@ -9,7 +9,13 @@ const User = require('../models/User');
 const Pickup = require('../models/Pickup');
 const { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } = require('date-fns');
 
+// Import attendance routes
+const attendanceRoutes = require('./attendanceRoutes');
+
 const router = express.Router();
+
+// Use attendance routes
+router.use('/', attendanceRoutes);
 
 // Get enrolled workers for office dashboard
 router.get('/enrolled-workers/:officeCode', async (req, res) => {

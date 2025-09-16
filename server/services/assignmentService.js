@@ -136,7 +136,7 @@ class AssignmentService {
       const assignment = await Assignment.findOneAndUpdate(
         {
           _id: assignmentId,
-          workerId: workerId, // Only the assigned worker
+          workerId: workerId, // CRITICAL: Only the exact assigned worker ID
           status: 'PENDING', // Only pending assignments
           'responseWindow.expiresAt': { $gt: new Date() } // Not expired
         },
@@ -145,7 +145,8 @@ class AssignmentService {
         },
         { 
           new: true,
-          session
+          session,
+          runValidators: true  // Ensure validation runs
         }
       ).populate('pickupRequestId');
       
@@ -158,8 +159,10 @@ class AssignmentService {
           throw new Error('Assignment not found');
         }
         
-        if (originalAssignment.workerId.toString() !== workerId.toString()) {
-          throw new Error('Not authorized or already accepted');
+        // CRITICAL: Check worker ID match with proper string comparison
+        if (!originalAssignment.workerId || originalAssignment.workerId.toString() !== workerId.toString()) {
+          console.error(`Worker ${workerId} tried to accept assignment for worker ${originalAssignment.workerId}`);
+          throw new Error('Not authorized - this assignment belongs to a different worker');
         }
         
         if (originalAssignment.status !== 'PENDING') {

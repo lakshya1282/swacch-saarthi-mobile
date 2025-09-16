@@ -180,6 +180,8 @@ const {
 const pickupRoutes = require('./routes/pickupRoutesDB'); // Use database-integrated routes
 const workerRoutes = require('./routes/workerRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const aadhaarRoutes = require('./routes/aadhaarRoutes'); // Aadhaar authentication routes
 
 // Initialize dashboard Socket.IO namespace
 app.locals.io = io; // Make io available to routes
@@ -317,6 +319,9 @@ app.use('/api/worker', workerRoutes);
 
 // Use dashboard routes for office operations
 app.use('/api/dashboard', dashboardRoutes);
+
+// Use Aadhaar authentication routes for workers
+app.use('/api/aadhaar', aadhaarRoutes);
 
 // QR validation endpoint - Verify pickup code
 app.post('/api/qr/validate', async (req, res) => {
@@ -2027,6 +2032,9 @@ app.put('/api/worker/assignment/:id/complete', authenticateToken, async (req, re
     });
   }
 });
+
+// Mount route handlers
+app.use('/api', attendanceRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

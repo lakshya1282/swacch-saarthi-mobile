@@ -3,11 +3,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialIcons } from '@expo/vector-icons';
-import { StatusBar } from 'react-native';
+import { StatusBar, View, Text } from 'react-native';
 import {
   SafeAreaProvider,
 } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { AttendanceProvider, useAttendance } from './src/contexts/AttendanceContext';
 
 // Import screens
 import LandingScreen from './src/screens/LandingScreen';
@@ -26,6 +27,7 @@ import PickupHistoryScreen from './src/screens/citizen/PickupHistoryScreen';
 import WorkerHomeScreen from './src/screens/worker/WorkerHomeScreen';
 import WorkerTasksScreen from './src/screens/worker/WorkerTasksScreen';
 import WorkerScannerScreen from './src/screens/worker/WorkerScannerScreen';
+import AttendanceScreen from './src/screens/worker/AttendanceScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -65,6 +67,36 @@ function CitizenTabs() {
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
+}
+
+// Worker Navigator with Attendance Check
+function WorkerNavigator() {
+  const { hasMarkedAttendance, isCheckingAttendance, markAttendanceComplete } = useAttendance();
+  
+  if (isCheckingAttendance) {
+    // Show loading screen while checking attendance
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
+        <MaterialIcons name="access-time" size={48} color="#FF9800" />
+        <Text style={{ marginTop: 16, fontSize: 18, color: '#333', fontWeight: 'bold' }}>Checking Attendance...</Text>
+        <Text style={{ marginTop: 8, fontSize: 14, color: '#666', textAlign: 'center', paddingHorizontal: 30 }}>
+          Please wait while we verify your attendance status for today.
+        </Text>
+      </View>
+    );
+  }
+  
+  if (!hasMarkedAttendance) {
+    // Show attendance screen if not marked
+    return (
+      <AttendanceScreen 
+        onAttendanceMarked={markAttendanceComplete}
+      />
+    );
+  }
+  
+  // Show normal worker tabs if attendance is marked
+  return <WorkerTabs />;
 }
 
 // Worker Tab Navigator
@@ -135,7 +167,7 @@ function AppNavigator() {
             />
           </>
         ) : (
-          <Stack.Screen name="WorkerMain" component={WorkerTabs} />
+          <Stack.Screen name="WorkerMain" component={WorkerNavigator} />
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -148,7 +180,9 @@ function App() {
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
       <AuthProvider>
-        <AppNavigator />
+        <AttendanceProvider>
+          <AppNavigator />
+        </AttendanceProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

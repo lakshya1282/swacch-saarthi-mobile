@@ -237,6 +237,115 @@ const workerSchema = new mongoose.Schema({
       required: [true, 'Relationship with emergency contact is required']
     }
   },
+  // Aadhaar Authentication Fields
+  aadhaarDetails: {
+    aadhaarNumber: {
+      type: String,
+      required: [true, 'Aadhaar number is required for worker registration'],
+      unique: true,
+      match: [/^[2-9]{1}[0-9]{3}[0-9]{4}[0-9]{4}$/, 'Please enter a valid 12-digit Aadhaar number'],
+      // Store encrypted - we'll handle encryption in pre-save hook
+      select: false // Don't return in queries by default
+    },
+    maskedAadhaar: {
+      type: String,
+      required: false // Will be auto-generated from aadhaarNumber
+    },
+    nameAsPerAadhaar: {
+      type: String,
+      required: [true, 'Name as per Aadhaar is required'],
+      trim: true
+    },
+    dateOfBirth: {
+      type: Date,
+      required: [true, 'Date of birth as per Aadhaar is required'],
+      validate: {
+        validator: function(date) {
+          const age = Math.floor((Date.now() - date) / (365.25 * 24 * 60 * 60 * 1000));
+          return age >= 18 && age <= 65;
+        },
+        message: 'Worker must be between 18 and 65 years old'
+      }
+    },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other'],
+      required: [true, 'Gender is required']
+    },
+    addressAsPerAadhaar: {
+      line1: {
+        type: String,
+        required: [true, 'Address line 1 is required']
+      },
+      line2: {
+        type: String,
+        required: false
+      },
+      city: {
+        type: String,
+        required: [true, 'City is required']
+      },
+      state: {
+        type: String,
+        required: [true, 'State is required']
+      },
+      pincode: {
+        type: String,
+        required: [true, 'Pincode is required'],
+        match: [/^[1-9][0-9]{5}$/, 'Please enter a valid pincode']
+      }
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'otp_sent', 'verified', 'failed', 'rejected'],
+      default: 'pending'
+    },
+    verificationAttempts: {
+      type: Number,
+      default: 0,
+      max: [3, 'Maximum verification attempts exceeded']
+    },
+    lastVerificationAttempt: {
+      type: Date,
+      default: null
+    },
+    verifiedAt: {
+      type: Date,
+      default: null
+    },
+    verificationOTP: {
+      otp: {
+        type: String,
+        select: false // Don't return in queries
+      },
+      expiresAt: {
+        type: Date,
+        select: false
+      },
+      generatedAt: {
+        type: Date,
+        select: false
+      }
+    },
+    aadhaarPhoto: {
+      type: String, // Base64 or URL to stored image
+      required: false,
+      select: false
+    },
+    biometricData: {
+      fingerprint: {
+        type: String,
+        select: false
+      },
+      irisData: {
+        type: String,
+        select: false
+      },
+      capturedAt: {
+        type: Date
+      }
+    }
+  },
   // Office Association and Enrollment
   officeId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -356,6 +465,22 @@ workerSchema.pre('save', function(next) {
     }
   }
   
+  // Generate masked Aadhaar number
+  if (this.isModified('aadhaarDetails.aadhaarNumber') && this.aadhaarDetails.aadhaarNumber) {
+    const aadhaar = this.aadhaarDetails.aadhaarNumber;
+    // Mask all except last 4 digits: XXXX-XXXX-1234
+    this.aadhaarDetails.maskedAadhaar = `XXXX-XXXX-${aadhaar.slice(-4)}`;
+  }
+  
+  // Auto-populate firstName and lastName from Aadhaar name if not provided
+  if (this.isModified('aadhaarDetails.nameAsPerAadhaar') && !this.firstName) {
+    const nameParts = this.aadhaarDetails.nameAsPerAadhaar.split(' ');
+    if (nameParts.length > 0) {
+      this.firstName = nameParts[0];
+      this.lastName = nameParts.slice(1).join(' ') || nameParts[0];
+    }
+  }
+  
   next();
 });
 
@@ -416,6 +541,66 @@ workerSchema.methods.updateRating = function(newRating) {
   this.performance.rating.count += 1;
   this.performance.rating.average = (currentTotal + newRating) / this.performance.rating.count;
   return this.save();
+};
+
+// Aadhaar verification methods
+workerSchema.methods.generateAadhaarOTP = function() {
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // Expires in 10 minutes
+  
+  this.aadhaarDetails.verificationOTP = {
+    otp: otp,
+    expiresAt: expiresAt,
+    generatedAt: new Date()
+  };
+  
+  this.aadhaarDetails.verificationStatus = 'otp_sent';
+  this.aadhaarDetails.lastVerificationAttempt = new Date();
+  
+  return { otp, expiresAt };
+};
+
+workerSchema.methods.verifyAadhaarOTP = function(inputOTP) {
+  if (!this.aadhaarDetails.verificationOTP.otp) {
+    throw new Error('No OTP generated for this worker');
+  }
+  
+  if (new Date() > this.aadhaarDetails.verificationOTP.expiresAt) {
+    this.aadhaarDetails.verificationOTP = {};
+    throw new Error('OTP has expired');
+  }
+  
+  if (this.aadhaarDetails.verificationOTP.otp !== inputOTP) {
+    this.aadhaarDetails.verificationAttempts += 1;
+    if (this.aadhaarDetails.verificationAttempts >= 3) {
+      this.aadhaarDetails.verificationStatus = 'failed';
+      this.isActive = false;
+    }
+    throw new Error('Invalid OTP');
+  }
+  
+  // OTP is valid
+  this.aadhaarDetails.verificationStatus = 'verified';
+  this.aadhaarDetails.verifiedAt = new Date();
+  this.aadhaarDetails.verificationOTP = {}; // Clear OTP
+  this.isVerified = true;
+  
+  return true;
+};
+
+workerSchema.methods.getAadhaarAge = function() {
+  if (!this.aadhaarDetails.dateOfBirth) return null;
+  const today = new Date();
+  const birthDate = new Date(this.aadhaarDetails.dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
 };
 
 // Static methods

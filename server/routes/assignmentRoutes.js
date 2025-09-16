@@ -4,7 +4,10 @@ const AssignmentService = require('../services/assignmentService');
 const Assignment = require('../models/Assignment');
 const PickupRequest = require('../models/PickupRequest');
 const Worker = require('../models/Worker');
+
+// Import authentication middleware
 const authMiddleware = require('../middleware/auth');
+const { authenticateWorker, validateTaskAcceptance } = require('../middleware/workerAuth');
 
 // Worker authentication middleware - ensures only workers can access worker-specific routes
 const workerAuthMiddleware = (req, res, next) => {
@@ -16,11 +19,14 @@ const workerAuthMiddleware = (req, res, next) => {
 };
 
 // Get worker assignments - only accessible by the assigned worker or admin
-router.get('/worker/:workerId', authMiddleware, async (req, res) => {
+router.get('/worker/:workerId', authenticateWorker, async (req, res) => {
   try {
-    // Ensure the worker can only access their own assignments
-    if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.workerId) {
-      return res.status(403).json({ error: 'You can only access your own assignments' });
+    // CRITICAL: Ensure the worker can only access their own assignments
+    if (req.params.workerId !== req.authenticatedWorkerId) {
+      return res.status(403).json({ 
+        error: 'You can only access your own assignments',
+        code: 'UNAUTHORIZED_ACCESS'
+      });
     }
     
     const status = req.query.status ? req.query.status.split(',') : null;
@@ -52,11 +58,12 @@ router.post('/create/:pickupRequestId', authMiddleware, async (req, res) => {
 });
 
 // Accept an assignment - only accessible by the assigned worker
-router.post('/accept/:assignmentId', authMiddleware, workerAuthMiddleware, async (req, res) => {
+// CRITICAL: Uses validateTaskAcceptance to ensure only the assigned worker can accept
+router.post('/accept/:assignmentId', authenticateWorker, validateTaskAcceptance, async (req, res) => {
   try {
     const assignment = await AssignmentService.acceptAssignment(
       req.params.assignmentId,
-      req.user._id, // Using req.user._id from auth middleware (equivalent to req.worker._id)
+      req.authenticatedWorkerId, // Using authenticated worker ID from middleware
       req.body
     );
     
