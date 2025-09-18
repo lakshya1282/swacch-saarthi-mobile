@@ -180,7 +180,41 @@ const LoginScreen = () => {
             <p>Don't have an account? <Link to="/register">Register here</Link></p>
           </div>
           
-          <div style={{marginTop: '30px', padding: '15px', backgroundColor: '#f0f8ff', borderRadius: '5px', border: '1px solid #4CAF50'}}>
+          <div style={{marginTop: '20px', padding: '15px', backgroundColor: '#fff8e1', borderRadius: '5px', border: '1px solid #FF9800'}}>
+            <h4 style={{color: '#FF9800', marginBottom: '10px', display: 'flex', alignItems: 'center'}}>
+              👤 Worker Profile & Office Enrollment
+            </h4>
+            <p style={{fontSize: '14px', color: '#333', marginBottom: '10px'}}>
+              After logging in as a worker, access your comprehensive profile with:
+            </p>
+            <div style={{fontSize: '13px', color: '#555', lineHeight: '1.4'}}>
+              <p style={{margin: '4px 0', display: 'flex', alignItems: 'flex-start'}}>
+                <span style={{marginRight: '8px'}}>📋</span>
+                <span><strong>Profile Management:</strong> View and edit personal details</span>
+              </p>
+              <p style={{margin: '4px 0', display: 'flex', alignItems: 'flex-start'}}>
+                <span style={{marginRight: '8px'}}>🏢</span>
+                <span><strong>Office Enrollment:</strong> Connect with your zone office using official codes</span>
+              </p>
+              <p style={{margin: '4px 0', display: 'flex', alignItems: 'flex-start'}}>
+                <span style={{marginRight: '8px'}}>📊</span>
+                <span><strong>Performance Metrics:</strong> Track attendance, punctuality, and efficiency</span>
+              </p>
+              <p style={{margin: '4px 0', display: 'flex', alignItems: 'flex-start'}}>
+                <span style={{marginRight: '8px'}}>🎯</span>
+                <span><strong>Work Management:</strong> Accept assignments and update task status</span>
+              </p>
+              <p style={{margin: '4px 0', display: 'flex', alignItems: 'flex-start'}}>
+                <span style={{marginRight: '8px'}}>💰</span>
+                <span><strong>Incentives:</strong> Earn performance-based bonuses and rewards</span>
+              </p>
+            </div>
+            <p style={{fontSize: '12px', color: '#666', marginTop: '8px', fontStyle: 'italic'}}>
+              🔑 Note: Contact your zone office supervisor to get your official enrollment code.
+            </p>
+          </div>
+
+          <div style={{marginTop: '20px', padding: '15px', backgroundColor: '#f0f8ff', borderRadius: '5px', border: '1px solid #4CAF50'}}>
             <h4 style={{color: '#4CAF50', marginBottom: '10px'}}>🔐 Demo Credentials</h4>
             <p style={{fontSize: '14px', marginBottom: '5px'}}>
               <strong>Citizen Access:</strong> citizen@demo.com / demo123

@@ -332,11 +332,9 @@ export const getApiBaseUrl = (): string => {
     return 'https://api.swacch-saarthii.com/api'; // Production URL
   }
   
-  if (Platform.OS === 'android') {
-    return 'http://192.168.29.93:3000/api'; // Your local IP for Android
-  }
-  
-  return 'http://localhost:3000/api'; // iOS Simulator
+  // Always use the actual IP address in development
+  // This works for both physical devices and emulators on the same network
+  return 'http://10.0.8.184:3000/api';
 };
 
 /**

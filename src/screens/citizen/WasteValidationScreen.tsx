@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import apiService from '../../services/apiService';
+import aiWasteValidation from '../../services/aiWasteValidation';
 
 interface ValidationResult {
   isCorrect: boolean;
@@ -47,6 +47,7 @@ const WasteValidationScreen: React.FC = () => {
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [aiServiceReady, setAiServiceReady] = useState(false);
   const [wasteTypes] = useState<WasteType[]>([
     {
       id: '1',
@@ -76,7 +77,19 @@ const WasteValidationScreen: React.FC = () => {
 
   useEffect(() => {
     requestPermissions();
+    checkAIServiceStatus();
   }, []);
+
+  const checkAIServiceStatus = async () => {
+    try {
+      // Initialize AI service in background
+      await aiWasteValidation.initializeTensorFlow();
+      setAiServiceReady(aiWasteValidation.isReady());
+    } catch (error) {
+      console.log('AI service initialization failed:', error);
+      setAiServiceReady(false);
+    }
+  };
 
   const requestPermissions = async () => {
     const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
@@ -149,52 +162,38 @@ const WasteValidationScreen: React.FC = () => {
     setValidating(true);
     
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append('image', {
-        uri: selectedImage,
-        type: 'image/jpeg',
-        name: 'waste-image.jpg',
-      } as any);
-
-      const response = await apiService.request({
-        url: '/waste/validate',
-        method: 'POST',
-        data: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      if (response.data.success) {
-        setValidationResult(response.data.result);
-        setShowResult(true);
-      } else {
-        Alert.alert('Error', 'Failed to validate waste');
-      }
-    } catch (error) {
-      console.error('Waste validation error:', error);
+      console.log('🚀 Starting AI waste validation...');
       
-      // Mock validation for demo purposes
+      // Use AI validation service
+      const aiResult = await aiWasteValidation.validateWaste(selectedImage);
+      
+      console.log('✅ AI validation result:', aiResult);
+      setValidationResult(aiResult);
+      setShowResult(true);
+      
+    } catch (error) {
+      console.error('❌ AI validation failed:', error);
+      
+      // Fallback to mock results if AI completely fails
       const mockResults: ValidationResult[] = [
         {
           isCorrect: true,
           wasteType: 'Dry Waste',
           confidence: 92,
-          message: 'Great job! This is correctly identified as dry waste.',
+          message: '🤖 AI service unavailable. Demo result: This appears to be dry waste.',
           tips: ['Keep containers clean before disposal', 'Remove any food residue'],
           recommendedBin: 'Blue bin (Dry waste)',
         },
         {
           isCorrect: false,
-          detectedItems: ['Banana peel', 'Plastic bottle'],
-          message: 'Mixed waste detected. Please separate the items.',
+          detectedItems: ['Mixed items'],
+          message: '🤖 AI service unavailable. Demo result: Mixed waste detected.',
           issues: [
             {
-              item: 'Banana peel',
-              currentBin: 'Dry waste',
-              correctBin: 'Wet waste (Green bin)',
-              reason: 'Organic matter should go in wet waste for composting',
+              item: 'Mixed items',
+              currentBin: 'Unknown',
+              correctBin: 'Separate items',
+              reason: 'AI service temporarily unavailable - please separate items manually',
             }
           ],
         }
@@ -220,6 +219,18 @@ const WasteValidationScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.title}>Waste Validation</Text>
           <Text style={styles.subtitle}>AI-powered waste classification</Text>
+          <View style={styles.aiStatusContainer}>
+            <View style={[styles.aiStatusIndicator, aiServiceReady ? styles.aiStatusReady : styles.aiStatusLoading]}>
+              <MaterialIcons 
+                name={aiServiceReady ? 'smart-toy' : 'refresh'} 
+                size={16} 
+                color={aiServiceReady ? '#4CAF50' : '#FF9800'} 
+              />
+              <Text style={[styles.aiStatusText, aiServiceReady ? styles.aiStatusReadyText : styles.aiStatusLoadingText]}>
+                {aiServiceReady ? 'AI Ready' : 'Loading AI...'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Waste Types Guide */}
@@ -722,6 +733,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
+  },
+  aiStatusContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  aiStatusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  aiStatusReady: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  aiStatusLoading: {
+    backgroundColor: 'rgba(255, 152, 0, 0.2)',
+  },
+  aiStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  aiStatusReadyText: {
+    color: '#4CAF50',
+  },
+  aiStatusLoadingText: {
+    color: '#FF9800',
   },
 });
 

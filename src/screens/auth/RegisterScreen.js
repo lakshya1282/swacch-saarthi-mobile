@@ -278,7 +278,20 @@ const RegisterScreen = () => {
                   styles.userTypeButton,
                   values.userType === 'worker' && styles.selectedUserType,
                 ]}
-                onPress={() => setFieldValue('userType', 'worker')}>
+                onPress={() => {
+                  // Navigate to Aadhaar registration for workers
+                  Alert.alert(
+                    'Worker Registration',
+                    'Workers must register with Aadhaar verification for security.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Register with Aadhaar', 
+                        onPress: () => navigation.navigate('AadhaarRegister')
+                      }
+                    ]
+                  );
+                }}>
                 <Text
                   style={[
                     styles.userTypeText,
@@ -321,6 +334,25 @@ const RegisterScreen = () => {
                 Already have an account? Login here
               </Text>
             </TouchableOpacity>
+            
+            {/* Prominent Aadhaar Registration Button for Workers */}
+            <View style={styles.aadhaarSection}>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              
+              <TouchableOpacity
+                style={styles.aadhaarButton}
+                onPress={() => navigation.navigate('AadhaarRegister')}>
+                <Text style={styles.aadhaarIcon}>🔐</Text>
+                <View style={styles.aadhaarTextContainer}>
+                  <Text style={styles.aadhaarButtonText}>Register as Worker with Aadhaar</Text>
+                  <Text style={styles.aadhaarButtonSubtext}>Secure verification for waste management workers</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </Formik>
@@ -472,6 +504,61 @@ const styles = StyleSheet.create({
   loginLinkText: {
     color: '#4CAF50',
     fontSize: 16,
+  },
+  aadhaarSection: {
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 15,
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  aadhaarButton: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  aadhaarIcon: {
+    fontSize: 32,
+    marginRight: 15,
+  },
+  aadhaarTextContainer: {
+    flex: 1,
+  },
+  aadhaarButtonText: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#FF9800',
+    marginBottom: 4,
+  },
+  aadhaarButtonSubtext: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
   },
 });
 

@@ -60,10 +60,35 @@ const LoginScreen: React.FC = () => {
       const response = await axios.post('http://192.168.29.93:3000/api/auth/login', formData);
       
       if (response.data.success) {
-        // Use the auth context to handle login
-        await login(response.data.token, response.data.user.userType, response.data.user);
+        // Store additional worker profile data if user is a worker
+        const userData = response.data.user;
         
-        Alert.alert('Success', 'Login successful!');
+        if (userData.userType === 'worker') {
+          // Store worker-specific data in AsyncStorage for quick access
+          try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            await AsyncStorage.setItem('workerId', userData._id || userData.id || '');
+            await AsyncStorage.setItem('userId', userData._id || userData.id || '');
+            await AsyncStorage.setItem('firstName', userData.firstName || '');
+            await AsyncStorage.setItem('lastName', userData.lastName || '');
+            await AsyncStorage.setItem('email', userData.email || '');
+            await AsyncStorage.setItem('phone', userData.phone || userData.mobile || '');
+            await AsyncStorage.setItem('address', userData.address || '');
+            await AsyncStorage.setItem('city', userData.city || '');
+            await AsyncStorage.setItem('pincode', userData.pincode || '');
+            
+            console.log('Worker profile data stored in AsyncStorage');
+          } catch (storageError) {
+            console.error('Error storing worker profile data:', storageError);
+          }
+        }
+        
+        // Use the auth context to handle login
+        console.log('✅ Login successful, updating auth state...');
+        await login(response.data.token, userData.userType, userData);
+        
+        // Don't show success alert as it blocks navigation
+        console.log('🚀 Navigating to dashboard...');
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -218,6 +243,20 @@ const LoginScreen: React.FC = () => {
             <Text style={styles.linkText}>Don't have an account? Register here</Text>
           </TouchableOpacity>
           
+          <TouchableOpacity 
+            style={[styles.linkButton, { marginTop: 10 }]}
+            onPress={() => navigation.navigate('AadhaarRegister' as never)}
+          >
+            <Text style={[styles.linkText, { color: '#FF9800' }]}>🔐 Worker Registration with Aadhaar</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.aadhaarLoginButton}
+            onPress={() => navigation.navigate('AadhaarLogin' as never)}
+          >
+            <Text style={styles.aadhaarLoginText}>🆔 Worker Login with Aadhaar</Text>
+          </TouchableOpacity>
+          
           {/* Development Only - Clear Storage Button */}
           {__DEV__ && (
             <TouchableOpacity 
@@ -227,6 +266,36 @@ const LoginScreen: React.FC = () => {
               <Text style={[styles.linkText, { color: '#FF5722' }]}>🔧 Clear Storage (Dev Only)</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        <View style={styles.profileSection}>
+          <Text style={styles.profileTitle}>👤 Worker Profile & Office Enrollment</Text>
+          <Text style={styles.profileDescription}>
+            After logging in as a worker, access your comprehensive profile with:
+          </Text>
+          <View style={styles.featureItem}>
+            <Text style={styles.featureBullet}>📋</Text>
+            <Text style={styles.featureText}><Text style={styles.featureBold}>Profile Management:</Text> View and edit personal details</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Text style={styles.featureBullet}>🏢</Text>
+            <Text style={styles.featureText}><Text style={styles.featureBold}>Office Enrollment:</Text> Connect with your zone office using official codes</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Text style={styles.featureBullet}>📊</Text>
+            <Text style={styles.featureText}><Text style={styles.featureBold}>Performance Metrics:</Text> Track attendance, punctuality, and efficiency</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Text style={styles.featureBullet}>🎯</Text>
+            <Text style={styles.featureText}><Text style={styles.featureBold}>Work Management:</Text> Accept assignments and update task status</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Text style={styles.featureBullet}>💰</Text>
+            <Text style={styles.featureText}><Text style={styles.featureBold}>Incentives:</Text> Earn performance-based bonuses and rewards</Text>
+          </View>
+          <Text style={styles.profileNote}>
+            🔑 Note: Contact your zone office supervisor to get your official enrollment code.
+          </Text>
         </View>
 
         <View style={styles.demoSection}>
@@ -349,6 +418,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 10,
+  },
+  profileSection: {
+    backgroundColor: '#fff8e1',
+    borderRadius: 8,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+    marginBottom: 15,
+  },
+  profileTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF9800',
+    marginBottom: 8,
+  },
+  profileDescription: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  featureBullet: {
+    fontSize: 14,
+    marginRight: 8,
+    width: 20,
+  },
+  featureText: {
+    fontSize: 13,
+    color: '#555',
+    flex: 1,
+    lineHeight: 17,
+  },
+  featureBold: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  profileNote: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  aadhaarLoginButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  aadhaarLoginText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

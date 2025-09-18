@@ -37,27 +37,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkLoginStatus = async () => {
     try {
-      console.log('Checking login status...');
+      console.log('🔍 Checking login status...');
       const token = await AsyncStorage.getItem('authToken');
       const type = await AsyncStorage.getItem('userType');
       const data = await AsyncStorage.getItem('userData');
       
       console.log('Found token:', !!token);
       console.log('Found userType:', type);
+      console.log('Found userData:', !!data);
       
       if (token && type) {
+        console.log('🚀 User is logged in, setting auth state...');
         setIsLoggedIn(true);
         setUserType(type);
         if (data) {
           try {
             setUserData(JSON.parse(data));
+            console.log('✅ User data parsed and set');
           } catch (e) {
             console.log('Could not parse userData, using as string');
             setUserData(data);
           }
         }
+        console.log('✅ Auth state set - user should see dashboard');
       } else {
-        console.log('No auth data found, user needs to login');
+        console.log('⚠️ No auth data found, user needs to login');
+        console.log('Current Auth State:');
+        console.log('Token:', token ? 'Set' : 'Not set');
+        console.log('User Type:', type || 'Not set');
+        console.log('User Data:', data ? 'Set' : 'Not set');
       }
     } catch (error) {
       console.error('Error checking login status:', error);
@@ -73,13 +81,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await AsyncStorage.setItem('userType', userType);
       await AsyncStorage.setItem('userData', JSON.stringify(userData));
       
-      console.log('Auth data stored successfully');
+      console.log('✅ Auth data stored successfully');
       console.log('Token stored:', !!token);
       console.log('User type:', userType);
+      console.log('User data:', userData);
       
+      // Update state to trigger navigation
+      console.log('🔄 Updating auth state...');
       setIsLoggedIn(true);
       setUserType(userType);
       setUserData(userData);
+      console.log('✅ Auth state updated - should navigate now');
     } catch (error) {
       console.error('Error during login:', error);
       throw error;

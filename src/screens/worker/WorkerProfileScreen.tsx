@@ -70,6 +70,16 @@ const WorkerProfileScreen: React.FC = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [validatingCode, setValidatingCode] = useState(false);
   
+  // Attendance states
+  const [attendanceData, setAttendanceData] = useState({
+    todayStatus: 'not-checked-in' as 'checked-in' | 'checked-out' | 'not-checked-in',
+    todayCheckIn: null as string | null,
+    todayCheckOut: null as string | null,
+    thisWeekDays: 0,
+    thisMonthDays: 0,
+    totalDays: 0,
+  });
+  
   // Profile data states
   const [profileData, setProfileData] = useState<WorkerData>({
     id: '',
@@ -125,9 +135,10 @@ const WorkerProfileScreen: React.FC = () => {
       
       // First try to load from API
       try {
-        const [profileResponse, statsResponse] = await Promise.all([
+        const [profileResponse, statsResponse, attendanceResponse] = await Promise.all([
           apiService.getWorkerProfile(),
-          apiService.getWorkerStats()
+          apiService.getWorkerStats(),
+          apiService.getTodayAttendance().catch(() => null) // Don't fail if attendance API is not available
         ]);
 
         console.log('Profile API Response:', profileResponse.data);
@@ -177,6 +188,61 @@ const WorkerProfileScreen: React.FC = () => {
           console.log('Setting stats:', statsResponse.data);
           setStats(statsResponse.data);
           await AsyncStorage.setItem('workerStats', JSON.stringify(statsResponse.data));
+        }
+
+        // Process attendance data
+        if (attendanceResponse && attendanceResponse.data) {
+          const attendance = attendanceResponse.data;
+          setAttendanceData({
+            todayStatus: attendance.status || 'not-checked-in',
+            todayCheckIn: attendance.checkInTime || null,
+            todayCheckOut: attendance.checkOutTime || null,
+            thisWeekDays: attendance.thisWeekDays || 0,
+            thisMonthDays: attendance.thisMonthDays || 0,
+            totalDays: attendance.totalDays || 0,
+          });
+          await AsyncStorage.setItem('workerAttendance', JSON.stringify(attendance));
+        } else {
+          // Load from local storage or calculate from stored records
+          try {
+            const storedRecords = await AsyncStorage.getItem('attendanceRecords');
+            if (storedRecords) {
+              const records = JSON.parse(storedRecords);
+              const today = new Date().toISOString().split('T')[0];
+              const todayRecord = records.find((r: any) => r.date === today);
+              
+              if (todayRecord) {
+                setAttendanceData(prev => ({
+                  ...prev,
+                  todayStatus: todayRecord.status,
+                  todayCheckIn: todayRecord.checkInTime,
+                  todayCheckOut: todayRecord.checkOutTime,
+                }));
+              }
+              
+              // Calculate attendance stats
+              const thisWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+              const thisMonth = new Date();
+              thisMonth.setDate(1);
+              
+              const thisWeekDays = records.filter((r: any) => 
+                new Date(r.date) >= thisWeek && r.status === 'checked-out'
+              ).length;
+              
+              const thisMonthDays = records.filter((r: any) => 
+                new Date(r.date) >= thisMonth && r.status === 'checked-out'
+              ).length;
+              
+              setAttendanceData(prev => ({
+                ...prev,
+                thisWeekDays,
+                thisMonthDays,
+                totalDays: records.filter((r: any) => r.status === 'checked-out').length,
+              }));
+            }
+          } catch (localError) {
+            console.log('No local attendance data available:', localError);
+          }
         }
       } catch (apiError) {
         console.log('API call failed, loading from AsyncStorage:', apiError);
@@ -560,6 +626,57 @@ const WorkerProfileScreen: React.FC = () => {
             </View>
           </View>
         )}
+
+        {/* Today's Attendance */}
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Today's Attendance</Text>
+          <View style={styles.attendanceCard}>
+            <View style={styles.attendanceHeader}>
+              <MaterialIcons 
+                name={attendanceData.todayStatus === 'checked-in' ? 'login' : attendanceData.todayStatus === 'checked-out' ? 'logout' : 'schedule'} 
+                size={24} 
+                color={attendanceData.todayStatus === 'checked-in' ? '#4CAF50' : attendanceData.todayStatus === 'checked-out' ? '#2196F3' : '#999'}
+              />
+              <Text style={[
+                styles.attendanceStatus,
+                { color: attendanceData.todayStatus === 'checked-in' ? '#4CAF50' : attendanceData.todayStatus === 'checked-out' ? '#2196F3' : '#999' }
+              ]}>
+                {attendanceData.todayStatus === 'checked-in' ? 'Checked In' : 
+                 attendanceData.todayStatus === 'checked-out' ? 'Completed' : 'Not Checked In'}
+              </Text>
+            </View>
+            
+            {attendanceData.todayCheckIn && (
+              <View style={styles.attendanceTimes}>
+                <View style={styles.attendanceTime}>
+                  <Text style={styles.attendanceTimeLabel}>Check-in:</Text>
+                  <Text style={styles.attendanceTimeValue}>{attendanceData.todayCheckIn}</Text>
+                </View>
+                {attendanceData.todayCheckOut && (
+                  <View style={styles.attendanceTime}>
+                    <Text style={styles.attendanceTimeLabel}>Check-out:</Text>
+                    <Text style={styles.attendanceTimeValue}>{attendanceData.todayCheckOut}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            
+            <View style={styles.attendanceStats}>
+              <View style={styles.attendanceStat}>
+                <Text style={styles.attendanceStatValue}>{attendanceData.thisWeekDays}</Text>
+                <Text style={styles.attendanceStatLabel}>This Week</Text>
+              </View>
+              <View style={styles.attendanceStat}>
+                <Text style={styles.attendanceStatValue}>{attendanceData.thisMonthDays}</Text>
+                <Text style={styles.attendanceStatLabel}>This Month</Text>
+              </View>
+              <View style={styles.attendanceStat}>
+                <Text style={styles.attendanceStatValue}>{attendanceData.totalDays}</Text>
+                <Text style={styles.attendanceStatLabel}>Total Days</Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* Profile Form */}
         <View style={styles.formSection}>
@@ -1449,6 +1566,61 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  // Attendance styles
+  attendanceCard: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FFD54F',
+  },
+  attendanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  attendanceStatus: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  attendanceTimes: {
+    marginBottom: 12,
+  },
+  attendanceTime: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  attendanceTimeLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  attendanceTimeValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  attendanceStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FFE082',
+  },
+  attendanceStat: {
+    alignItems: 'center',
+  },
+  attendanceStatValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#F57C00',
+  },
+  attendanceStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
 });
 

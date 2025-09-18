@@ -14,13 +14,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants';
+import { COLORS, DESIGN_TOKENS } from '../../constants';
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'success';
-  size?: 'small' | 'medium' | 'large';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'success' | 'ghost' | 'accent';
+  size?: 'small' | 'medium' | 'large' | 'xl';
   loading?: boolean;
   disabled?: boolean;
   icon?: keyof typeof MaterialIcons.glyphMap;
@@ -173,34 +173,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: DESIGN_TOKENS.BORDER_RADIUS.MD,
+    ...DESIGN_TOKENS.SHADOWS.SMALL,
   },
   
   // Size variants
   button_small: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: DESIGN_TOKENS.SPACING.SM,
+    paddingHorizontal: DESIGN_TOKENS.SPACING.MD,
+    borderRadius: DESIGN_TOKENS.BORDER_RADIUS.SM,
   },
   button_medium: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: DESIGN_TOKENS.SPACING.MD,
+    paddingHorizontal: DESIGN_TOKENS.SPACING.LG,
   },
   button_large: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: DESIGN_TOKENS.SPACING.LG,
+    paddingHorizontal: DESIGN_TOKENS.SPACING.XL,
+  },
+  button_xl: {
+    paddingVertical: DESIGN_TOKENS.SPACING.XL,
+    paddingHorizontal: DESIGN_TOKENS.SPACING.XXL,
+    borderRadius: DESIGN_TOKENS.BORDER_RADIUS.LG,
   },
 
   // Color variants
   button_primary: {
     backgroundColor: COLORS.PRIMARY,
+    ...DESIGN_TOKENS.SHADOWS.COLORED,
   },
   button_secondary: {
     backgroundColor: COLORS.SECONDARY,
+  },
+  button_accent: {
+    backgroundColor: COLORS.ACCENT,
   },
   button_outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: COLORS.PRIMARY,
+  },
+  button_ghost: {
+    backgroundColor: COLORS.BACKGROUND.SURFACE,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER.LIGHT,
   },
   button_danger: {
     backgroundColor: COLORS.ERROR,
@@ -209,27 +225,38 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.SUCCESS,
   },
   button_disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
+    backgroundColor: COLORS.NEUTRAL[300],
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   // Gradient button
   gradientButton: {
-    borderRadius: 8,
+    borderRadius: DESIGN_TOKENS.BORDER_RADIUS.MD,
   },
 
   // Text styles
   text: {
-    fontWeight: '600',
+    fontWeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_WEIGHT.SEMIBOLD,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   text_small: {
-    fontSize: 14,
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.SM,
+    lineHeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.SM * 1.3,
   },
   text_medium: {
-    fontSize: 16,
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.MD,
+    lineHeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.MD * 1.3,
   },
   text_large: {
-    fontSize: 18,
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.LG,
+    lineHeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.LG * 1.3,
+  },
+  text_xl: {
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.XL,
+    lineHeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.XL * 1.3,
   },
   text_primary: {
     color: COLORS.TEXT.WHITE,
@@ -237,8 +264,14 @@ const styles = StyleSheet.create({
   text_secondary: {
     color: COLORS.TEXT.WHITE,
   },
+  text_accent: {
+    color: COLORS.TEXT.WHITE,
+  },
   text_outline: {
     color: COLORS.PRIMARY,
+  },
+  text_ghost: {
+    color: COLORS.TEXT.PRIMARY,
   },
   text_danger: {
     color: COLORS.TEXT.WHITE,
@@ -249,10 +282,10 @@ const styles = StyleSheet.create({
 
   // Icon styles
   iconLeft: {
-    marginRight: 8,
+    marginRight: DESIGN_TOKENS.SPACING.SM,
   },
   iconRight: {
-    marginLeft: 8,
+    marginLeft: DESIGN_TOKENS.SPACING.SM,
   },
 });
 

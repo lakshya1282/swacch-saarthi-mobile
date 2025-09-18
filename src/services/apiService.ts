@@ -27,28 +27,22 @@ class ApiService {
     const configs = {
       // Android Emulator
       androidEmulator: 'http://10.0.2.2:3000/api',
-      // iOS Simulator
-      iosSimulator: 'http://localhost:3000/api',
+      // iOS Simulator - Updated to use actual IP instead of localhost
+      iosSimulator: 'http://192.168.29.93:3000/api',
       // Physical Device (same network)
       physicalDevice: 'http://192.168.29.93:3000/api',
       // Production (update when deployed)
       production: 'http://192.168.29.93:3000/api'
     };
 
-    // Auto-detect based on platform
+    // In development, always use the physical device IP
+    // This works for both emulators and physical devices on the same network
     if (__DEV__) {
-      // Development mode
-      if (Platform.OS === 'android') {
-        // Check if running on emulator (basic check)
-        // For more accurate detection, use react-native-device-info
-        return configs.physicalDevice; // Using physical device IP
-      } else if (Platform.OS === 'ios') {
-        return configs.iosSimulator;
-      }
+      return configs.physicalDevice;
     }
     
-    // Default to physical device IP for your current setup
-    return configs.physicalDevice;
+    // In production, use production URL
+    return configs.production;
   }
 
   private setupInterceptors() {
@@ -376,6 +370,48 @@ class ApiService {
     } catch (error) {
       // Fallback to pickups with pending status
       return this.api.get('/pickups?status=pending');
+    }
+  }
+
+  // Attendance endpoints
+  async markAttendance(attendanceData: any) {
+    try {
+      // Try to mark attendance through dedicated endpoint
+      return await this.api.post('/worker/attendance/mark', attendanceData);
+    } catch (error) {
+      // Fallback to generic attendance endpoint
+      return this.api.post('/attendance/mark', attendanceData);
+    }
+  }
+
+  async getAttendanceHistory() {
+    try {
+      // Get worker's attendance history
+      return await this.api.get('/worker/attendance/history');
+    } catch (error) {
+      // Fallback to generic attendance history
+      return this.api.get('/attendance/history');
+    }
+  }
+
+  async getTodayAttendance() {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      return await this.api.get(`/worker/attendance/today?date=${today}`);
+    } catch (error) {
+      // Fallback to generic today attendance
+      const today = new Date().toISOString().split('T')[0];
+      return this.api.get(`/attendance/today?date=${today}`);
+    }
+  }
+
+  async validateAttendanceQR(qrData: string) {
+    try {
+      // Validate attendance QR code
+      return await this.api.post('/worker/attendance/validate-qr', { qrData });
+    } catch (error) {
+      // Try generic QR validation with attendance context
+      return this.api.post('/qr/validate', { qrData, type: 'attendance' });
     }
   }
 

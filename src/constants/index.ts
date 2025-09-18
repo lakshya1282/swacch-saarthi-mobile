@@ -9,7 +9,7 @@ export const API_CONFIG = {
   BASE_URLS: {
     ANDROID_EMULATOR: 'http://10.0.2.2:3000/api',
     IOS_SIMULATOR: 'http://localhost:3000/api',
-    PHYSICAL_DEVICE: 'http://192.168.29.93:3000/api',
+    PHYSICAL_DEVICE: 'http://10.145.5.1:3000/api',
     PRODUCTION: 'https://api.swacch-saarthii.com/api', // Update with actual production URL
   },
 } as const;
@@ -37,46 +37,192 @@ export const ROUTES = {
   SCANNER: 'Scanner',
 } as const;
 
-// Colors
+// Modern Color System
 export const COLORS = {
-  PRIMARY: '#4CAF50',
-  SECONDARY: '#FF9800',
-  SUCCESS: '#4CAF50',
-  WARNING: '#FF9800',
-  ERROR: '#F44336',
-  INFO: '#2196F3',
+  // Brand Colors
+  PRIMARY: '#2ECC71',      // Modern green
+  SECONDARY: '#F39C12',    // Warm orange
+  ACCENT: '#3498DB',       // Bright blue
+  
+  // Semantic Colors
+  SUCCESS: '#27AE60',      // Success green
+  WARNING: '#F1C40F',     // Warning yellow
+  ERROR: '#E74C3C',       // Error red
+  INFO: '#3498DB',        // Info blue
   
   // Status Colors
   STATUS: {
-    PENDING: '#FF9800',
-    ASSIGNED: '#2196F3',
-    IN_PROGRESS: '#9C27B0',
-    REACHED: '#03A9F4',
-    COLLECTED: '#4CAF50',
-    COMPLETED: '#4CAF50',
-    CANCELLED: '#F44336',
+    PENDING: '#F39C12',     // Orange
+    ASSIGNED: '#3498DB',    // Blue
+    IN_PROGRESS: '#9B59B6', // Purple
+    REACHED: '#17A2B8',     // Teal
+    COLLECTED: '#28A745',   // Green
+    COMPLETED: '#27AE60',   // Success green
+    CANCELLED: '#E74C3C',   // Red
   },
   
   // Gradient Colors
   GRADIENT: {
-    PRIMARY: ['#4CAF50', '#45a049'],
-    SECONDARY: ['#FF9800', '#F57C00'],
-    LANDING: ['#1e88e5', '#1565c0', '#0d47a1'],
+    PRIMARY: ['#2ECC71', '#27AE60'],
+    SECONDARY: ['#F39C12', '#E67E22'],
+    ACCENT: ['#3498DB', '#2980B9'],
+    SUNSET: ['#FF6B6B', '#FF8E53'],
+    OCEAN: ['#4FACFE', '#00F2FE'],
+    FOREST: ['#56AB2F', '#A8E6CF'],
+    NIGHT: ['#2C3E50', '#34495E'],
+  },
+  
+  // Neutral Colors
+  NEUTRAL: {
+    50: '#FAFAFA',
+    100: '#F5F5F5',
+    200: '#EEEEEE',
+    300: '#E0E0E0',
+    400: '#BDBDBD',
+    500: '#9E9E9E',
+    600: '#757575',
+    700: '#616161',
+    800: '#424242',
+    900: '#212121',
   },
   
   // Text Colors
   TEXT: {
-    PRIMARY: '#333',
-    SECONDARY: '#666',
-    LIGHT: '#999',
-    WHITE: '#fff',
+    PRIMARY: '#212121',     // Dark text
+    SECONDARY: '#757575',   // Medium text
+    TERTIARY: '#BDBDBD',    // Light text
+    DISABLED: '#E0E0E0',    // Disabled text
+    WHITE: '#FFFFFF',       // White text
+    INVERSE: '#FAFAFA',     // Inverse text
   },
   
   // Background Colors
   BACKGROUND: {
-    PRIMARY: '#f5f5f5',
-    SECONDARY: '#fff',
-    OVERLAY: 'rgba(0, 0, 0, 0.5)',
+    PRIMARY: '#FAFAFA',     // Primary background
+    SECONDARY: '#FFFFFF',   // Secondary background
+    TERTIARY: '#F5F5F5',    // Tertiary background
+    OVERLAY: 'rgba(33, 33, 33, 0.6)',
+    MODAL: 'rgba(0, 0, 0, 0.5)',
+    CARD: '#FFFFFF',
+    SURFACE: '#F8F9FA',
+  },
+  
+  // Border Colors
+  BORDER: {
+    LIGHT: '#E0E0E0',
+    MEDIUM: '#BDBDBD',
+    DARK: '#757575',
+    FOCUS: '#3498DB',
+    ERROR: '#E74C3C',
+    SUCCESS: '#27AE60',
+  },
+  
+  // Shadow Colors
+  SHADOW: {
+    LIGHT: 'rgba(0, 0, 0, 0.05)',
+    MEDIUM: 'rgba(0, 0, 0, 0.1)',
+    DARK: 'rgba(0, 0, 0, 0.15)',
+    COLORED: 'rgba(46, 204, 113, 0.2)',
+  },
+} as const;
+
+// Design Tokens
+export const DESIGN_TOKENS = {
+  // Spacing
+  SPACING: {
+    XS: 4,
+    SM: 8,
+    MD: 16,
+    LG: 24,
+    XL: 32,
+    XXL: 48,
+  },
+  
+  // Border Radius
+  BORDER_RADIUS: {
+    XS: 4,
+    SM: 8,
+    MD: 12,
+    LG: 16,
+    XL: 24,
+    PILL: 999,
+  },
+  
+  // Typography
+  TYPOGRAPHY: {
+    // Font Sizes
+    FONT_SIZE: {
+      XS: 12,
+      SM: 14,
+      MD: 16,
+      LG: 18,
+      XL: 20,
+      XXL: 24,
+      XXXL: 32,
+    },
+    
+    // Line Heights
+    LINE_HEIGHT: {
+      TIGHT: 1.2,
+      NORMAL: 1.5,
+      RELAXED: 1.8,
+    },
+    
+    // Font Weights
+    FONT_WEIGHT: {
+      LIGHT: '300',
+      NORMAL: '400',
+      MEDIUM: '500',
+      SEMIBOLD: '600',
+      BOLD: '700',
+      EXTRABOLD: '800',
+    },
+  },
+  
+  // Shadows
+  SHADOWS: {
+    SMALL: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    MEDIUM: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    LARGE: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    COLORED: {
+      shadowColor: COLORS.PRIMARY,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+  },
+  
+  // Animation
+  ANIMATION: {
+    DURATION: {
+      FAST: 150,
+      NORMAL: 250,
+      SLOW: 350,
+    },
+    EASING: {
+      EASE_IN: 'ease-in',
+      EASE_OUT: 'ease-out',
+      EASE_IN_OUT: 'ease-in-out',
+    },
   },
 } as const;
 

@@ -501,6 +501,7 @@ const MyWorks = () => {
             <li><Link to="/worker">Dashboard</Link></li>
             <li><Link to="/worker/my-works">My Works</Link></li>
             <li><Link to="/worker/find-works">Find Works</Link></li>
+            <li><Link to="/worker/profile">👤 Profile</Link></li>
           </ul>
         </div>
       </nav>

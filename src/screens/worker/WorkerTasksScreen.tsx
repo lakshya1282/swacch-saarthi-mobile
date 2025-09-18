@@ -18,6 +18,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import apiService from '../../services/apiService';
 import socketService from '../../services/socketService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import QRScanner from '../../components/QRScanner';
 
 interface Task {
   id: string;
@@ -47,6 +48,7 @@ const WorkerTasksScreen: React.FC = () => {
   const [completionNotes, setCompletionNotes] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -546,6 +548,30 @@ const WorkerTasksScreen: React.FC = () => {
     }
   };
 
+  const handleQRScan = (data: string) => {
+    console.log('QR Code scanned for task completion:', data);
+    setShowQRScanner(false);
+    
+    try {
+      // Try to parse as JSON first
+      const qrData = JSON.parse(data);
+      if (qrData.verificationCode) {
+        setVerificationCode(qrData.verificationCode);
+        Alert.alert('Success', 'Verification code scanned successfully!');
+      } else if (qrData.pickupId && selectedTask && qrData.pickupId === selectedTask.pickupId) {
+        // If QR contains pickup data matching current task
+        setVerificationCode(qrData.pickupId);
+        Alert.alert('Success', 'QR code scanned successfully!');
+      } else {
+        Alert.alert('Error', 'This QR code does not contain valid verification data for this task.');
+      }
+    } catch (error) {
+      // If not JSON, treat as plain text verification code
+      setVerificationCode(data.trim());
+      Alert.alert('Success', 'Verification code scanned successfully!');
+    }
+  };
+
   const handleCompleteTask = async () => {
     if (!selectedTask || !verificationCode.trim()) {
       Alert.alert('Error', 'Please enter the verification code provided by the customer.');
@@ -908,15 +934,35 @@ const WorkerTasksScreen: React.FC = () => {
               <Text style={styles.codeSectionSubtitle}>
                 Ask the customer for their verification code to complete the pickup
               </Text>
-              <TextInput
-                style={styles.codeInput}
-                placeholder="Enter verification code from customer"
-                value={verificationCode}
-                onChangeText={setVerificationCode}
-                autoCapitalize="characters"
-                maxLength={20}
-                returnKeyType="done"
-              />
+              
+              {/* Verification Options */}
+              <View style={styles.verificationOptions}>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.codeInput}
+                    placeholder="Enter verification code from customer"
+                    value={verificationCode}
+                    onChangeText={setVerificationCode}
+                    autoCapitalize="characters"
+                    maxLength={20}
+                    returnKeyType="done"
+                  />
+                </View>
+                
+                <View style={styles.orDivider}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>OR</Text>
+                  <View style={styles.orLine} />
+                </View>
+                
+                <TouchableOpacity 
+                  style={styles.qrScanButton}
+                  onPress={() => setShowQRScanner(true)}
+                >
+                  <MaterialIcons name="qr-code-scanner" size={20} color="#FF9800" />
+                  <Text style={styles.qrScanButtonText}>Scan Customer's QR Code</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TextInput
@@ -962,6 +1008,19 @@ const WorkerTasksScreen: React.FC = () => {
             </View>
           </View>
         </View>
+      </Modal>
+      
+      {/* QR Scanner Modal */}
+      <Modal
+        visible={showQRScanner}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowQRScanner(false)}
+      >
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={() => setShowQRScanner(false)}
+        />
       </Modal>
     </View>
   );
@@ -1262,6 +1321,46 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  verificationOptions: {
+    gap: 15,
+  },
+  inputContainer: {
+    marginBottom: 5,
+  },
+  orDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  orText: {
+    marginHorizontal: 15,
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
+  },
+  qrScanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3E0',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 15,
+    marginTop: 5,
+  },
+  qrScanButtonText: {
+    color: '#FF9800',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

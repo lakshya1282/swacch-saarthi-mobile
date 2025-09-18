@@ -26,6 +26,8 @@ import PickupHistoryScreen from './src/screens/citizen/PickupHistoryScreen';
 import WorkerHomeScreen from './src/screens/worker/WorkerHomeScreen';
 import WorkerTasksScreen from './src/screens/worker/WorkerTasksScreen';
 import WorkerScannerScreen from './src/screens/worker/WorkerScannerScreen';
+import WorkerProfileScreen from './src/screens/worker/WorkerProfileScreen';
+import AttendanceScreen from './src/screens/worker/AttendanceScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -79,8 +81,12 @@ function WorkerTabs() {
             iconName = 'dashboard';
           } else if (route.name === 'Tasks') {
             iconName = 'assignment';
+          } else if (route.name === 'Attendance') {
+            iconName = 'access-time';
           } else if (route.name === 'Scanner') {
             iconName = 'qr-code-scanner';
+          } else if (route.name === 'Profile') {
+            iconName = 'person';
           } else {
             iconName = 'help';
           }
@@ -96,6 +102,7 @@ function WorkerTabs() {
       })}>
       <Tab.Screen name="Dashboard" component={WorkerHomeScreen} />
       <Tab.Screen name="Tasks" component={WorkerTasksScreen} />
+      <Tab.Screen name="Attendance" component={AttendanceScreen} />
       <Tab.Screen name="Scanner" component={WorkerScannerScreen} />
     </Tab.Navigator>
   );
@@ -135,7 +142,19 @@ function AppNavigator() {
             />
           </>
         ) : (
-          <Stack.Screen name="WorkerMain" component={WorkerTabs} />
+          <>
+            <Stack.Screen name="WorkerMain" component={WorkerTabs} />
+            <Stack.Screen 
+              name="WorkerProfile" 
+              component={WorkerProfileScreen}
+              options={{
+                headerShown: true,
+                headerTitle: 'Profile',
+                headerStyle: { backgroundColor: '#FF9800' },
+                headerTintColor: '#fff',
+              }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,0 +1,56 @@
+[dotenv@17.2.2] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+✅ Pickup routes initialized with empty data store (production mode)
+Server running on 0.0.0.0:3000
+Environment: development
+💾 Database: MongoDB (Real database mode)
+🔌 Socket.IO: Enabled for real-time updates
+📱 Mobile app should connect to: http://10.0.8.184:${PORT}
+📝 API Endpoints: http://10.0.8.184:${PORT}/api
+🌐 Socket.IO: http://10.0.8.184:${PORT}
+✅ MongoDB connected successfully
+✅ MongoDB connected successfully
+🔌 New client connected: QzbyBN_ARqXnvfaxAAAD
+🔌 New client connected: irWzIlqSKGfq6u-7AAAE
+🔌 Client disconnected: irWzIlqSKGfq6u-7AAAE
+🔌 Client disconnected: QzbyBN_ARqXnvfaxAAAD
+🔌 New client connected: 5u2JrB0j1qEOJC1ZAAAG
+🔌 Client disconnected: 5u2JrB0j1qEOJC1ZAAAG
+🔌 New client connected: cuK_h71qn5tbO2hNAAAI
+🔌 Client disconnected: cuK_h71qn5tbO2hNAAAI
+🔌 New client connected: 5Hkgl_CMviaeVJ7BAAAK
+🔌 Client disconnected: 5Hkgl_CMviaeVJ7BAAAK
+🔌 New client connected: evFNJfXU9PN5wWDIAAAM
+✅ Login successful: Lakshya Parmar (worker)
+✅ User registered: worker a (worker)
+📧 Welcome Email Sent to: lakshya@gmail.com
+📱 SMS Sent to: 8319221338
+✅ User registered: worker a (worker)
+✅ Login successful: lakshya parmar (citizen)
+🔌 New client connected: 1qSthbpixjBzjoEVAAAO
+🔌 Client disconnected: evFNJfXU9PN5wWDIAAAM
+🔌 New client connected: M4Pa1u8bHhWC-4XVAAAQ
+Citizen 68c114cd0eebdc66177dbe08 joined rooms
+✅ Login successful: lakshya parmar (citizen)
+🔌 Client disconnected: M4Pa1u8bHhWC-4XVAAAQ
+🔌 New client connected: v16vmtDpdNuK03NsAAAS
+✅ Login successful: lakshya parmar (citizen)
+Creating sample pickup history for user: 68c114cd0eebdc66177dbe08
+✅ Added 2 sample pickups for user 68c114cd0eebdc66177dbe08
+✅ New pickup scheduled: PUMFP2WWZA289 for user 68c114cd0eebdc66177dbe08
+✅ New pickup scheduled: PUMFP2XDM6404 for user 68c114cd0eebdc66177dbe08
+✅ Login successful: Lakshya Parmar (worker)
+Worker 68c9bdd6c8c7dc062d4f8029 attempting to accept task PUMFP2XDM6404
+❌ Task acceptance failed for worker 68c9bdd6c8c7dc062d4f8029: DATABASE_ERROR
+Worker 68c9bdd6c8c7dc062d4f8029 attempting to accept task PUMFP2WWZA289
+❌ Task acceptance failed for worker 68c9bdd6c8c7dc062d4f8029: DATABASE_ERROR
+✅ Login successful: worker a (worker)
+🔌 Client disconnected: v16vmtDpdNuK03NsAAAS
+🔌 New client connected: ve5hDRdyfht-dQZtAAAU
+Worker 68cbaf507fcdd55133acc5c1 joined rooms
+🔌 Client disconnected: ve5hDRdyfht-dQZtAAAU
+🔌 New client connected: BAgCcvPyvbT0d820AAAW
+Worker 68cbaf507fcdd55133acc5c1 joined rooms
+🔌 Client disconnected: BAgCcvPyvbT0d820AAAW
+🔌 New client connected: yWgiptiKndDecd1xAAAY
+🔌 Client disconnected: yWgiptiKndDecd1xAAAY
+🔌 Client disconnected: 1qSthbpixjBzjoEVAAAO

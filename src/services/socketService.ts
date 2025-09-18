@@ -3,10 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class SocketService {
   private socket: Socket | null = null;
-  private serverUrl: string = 'http://192.168.29.93:3000';
+  private serverUrls: string[] = [
+    'http://192.168.29.93:3000',    // Primary: Current network IP
+    'http://localhost:3000',        // Fallback for emulator
+    'http://10.0.2.2:3000',         // Android emulator specific
+  ];
+  private currentUrlIndex: number = 0;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private listeners: Map<string, Set<Function>> = new Map();
+  private connectionTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     this.connect();
@@ -19,21 +25,35 @@ class SocketService {
         return;
       }
 
-      console.log('Connecting to Socket.IO server...');
+      const serverUrl = this.serverUrls[this.currentUrlIndex];
+      console.log(`Attempting Socket.IO connection to: ${serverUrl}`);
       
-      this.socket = io(this.serverUrl, {
-        transports: ['websocket'],
-        reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+      // Clear any existing connection timeout
+      if (this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout);
+      }
+      
+      this.socket = io(serverUrl, {
+        transports: ['websocket', 'polling'], // Add polling as fallback
+        reconnection: false, // We handle reconnection manually
+        timeout: 5000, // Connection timeout
+        forceNew: true, // Force new connection
       });
+
+      // Set a timeout for connection attempt
+      this.connectionTimeout = setTimeout(() => {
+        if (!this.socket?.connected) {
+          console.log(`Connection timeout for ${serverUrl}`);
+          this.socket?.disconnect();
+          this.tryNextUrl();
+        }
+      }, 5000);
 
       this.setupEventHandlers();
       
     } catch (error) {
       console.error('Socket connection error:', error);
-      this.handleReconnect();
+      this.tryNextUrl();
     }
   };
 
@@ -42,6 +62,15 @@ class SocketService {
 
     this.socket.on('connect', async () => {
       console.log('✅ Socket connected:', this.socket?.id);
+      console.log('Connected to:', this.serverUrls[this.currentUrlIndex]);
+      
+      // Clear connection timeout on successful connection
+      if (this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout);
+        this.connectionTimeout = null;
+      }
+      
+      // Reset connection attempts
       this.reconnectAttempts = 0;
       
       // Join appropriate room based on user type
@@ -67,7 +96,8 @@ class SocketService {
 
     this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error.message);
-      this.handleReconnect();
+      console.error('Failed URL:', this.serverUrls[this.currentUrlIndex]);
+      // Don't call handleReconnect here as tryNextUrl will handle it
     });
 
     // Listen for pickup updates
@@ -99,7 +129,13 @@ class SocketService {
 
   private handleReconnect = () => {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnection attempts reached');
+      console.log('Max reconnection attempts reached for all URLs');
+      // Reset to try from the beginning after a longer delay
+      setTimeout(() => {
+        this.reconnectAttempts = 0;
+        this.currentUrlIndex = 0;
+        this.connect();
+      }, 60000); // Try again after 1 minute
       return;
     }
 
@@ -111,6 +147,31 @@ class SocketService {
     setTimeout(() => {
       this.connect();
     }, delay);
+  };
+
+  private tryNextUrl = () => {
+    // Clear connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+    
+    // Disconnect current socket if exists
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+    
+    // Move to next URL
+    this.currentUrlIndex = (this.currentUrlIndex + 1) % this.serverUrls.length;
+    
+    // If we've tried all URLs, increment reconnect attempts
+    if (this.currentUrlIndex === 0) {
+      this.handleReconnect();
+    } else {
+      // Try next URL immediately
+      this.connect();
+    }
   };
 
   joinWorkerRoom = (workerId: string) => {

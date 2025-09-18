@@ -12,7 +12,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import apiService from '../../services/apiService';
 import socketService from '../../services/socketService';
@@ -422,9 +422,20 @@ const WorkerHomeScreen: React.FC = () => {
             {userData ? `${userData.firstName} ${userData.lastName}` : 'Worker'}
           </Text>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialIcons name="exit-to-app" size={24} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.profileButton} 
+            onPress={() => {
+              // Navigate to WorkerProfile screen
+              navigation.navigate('WorkerProfile' as never);
+            }}
+          >
+            <MaterialIcons name="person" size={24} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <MaterialIcons name="exit-to-app" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Earnings Card with Rating */}
@@ -768,6 +779,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   logoutButton: {
     padding: 8,

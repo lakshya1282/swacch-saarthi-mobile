@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { reverseGeocode, formatCoordinates } from '../utils/geocodingUtils';
 import QRScanner from './QRScanner';
+import OfficeEnrollment from './OfficeEnrollment';
 
 const WorkerDashboard = () => {
   const [worker, setWorker] = useState(null);
@@ -18,12 +19,21 @@ const WorkerDashboard = () => {
   const [error, setError] = useState(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [currentAssignmentForCompletion, setCurrentAssignmentForCompletion] = useState(null);
+  const [enrollmentStatus, setEnrollmentStatus] = useState(null); // null, 'not_enrolled', 'enrolled'
+  const [checkingEnrollment, setCheckingEnrollment] = useState(true);
   const navigate = useNavigate();
 
   // Initial load effect - only runs once on mount
   useEffect(() => {
     checkAuthAndLoadData();
   }, [navigate]);
+  
+  // Optional: Check enrollment status for profile info (non-blocking)
+  useEffect(() => {
+    if (worker && worker._id) {
+      checkEnrollmentStatus();
+    }
+  }, [worker]);
   
   // Event listener effect - always active after initial load
   useEffect(() => {
@@ -46,6 +56,77 @@ const WorkerDashboard = () => {
       window.removeEventListener('workerDataUpdated', handleWorkerDataUpdate);
     };
   }, []); // Remove worker dependency to prevent re-registration
+  
+  const checkEnrollmentStatus = async () => {
+    console.log('🔍 Checking enrollment status for worker:', worker?._id);
+    
+    if (!worker?._id) {
+      console.log('❌ No worker ID found, skipping enrollment check');
+      setCheckingEnrollment(false);
+      return;
+    }
+    
+    try {
+      // First check localStorage for quick access
+      const cachedStatus = localStorage.getItem('workerEnrollmentStatus');
+      const cachedOfficeCode = localStorage.getItem('workerOfficeCode');
+      
+      console.log('📋 Cache check - Status:', cachedStatus, 'Office Code:', cachedOfficeCode);
+      
+      if (cachedStatus === 'enrolled' && cachedOfficeCode) {
+        console.log('✅ Found enrollment in cache, worker is enrolled');
+        setEnrollmentStatus('enrolled');
+        setCheckingEnrollment(false);
+        return;
+      }
+      
+      // Fetch from API to get current status
+      console.log('🌐 Fetching enrollment status from API for worker:', worker._id);
+      const response = await axios.get(
+        `http://localhost:3000/api/worker/enrollment-status/${worker._id}`
+      );
+      
+      console.log('📡 API Response:', response.data);
+      
+      if (response.data.success) {
+        const enrollment = response.data.enrollment;
+        console.log('✅ API returned enrollment data:', enrollment);
+        setEnrollmentStatus(enrollment.status);
+        
+        // Update localStorage cache
+        localStorage.setItem('workerEnrollmentStatus', enrollment.status);
+        if (enrollment.officeCode) {
+          localStorage.setItem('workerOfficeCode', enrollment.officeCode);
+        }
+        if (enrollment.office?.officeName) {
+          localStorage.setItem('workerOfficeName', enrollment.office.officeName);
+        }
+      } else {
+        // If API call fails, assume not enrolled
+        console.log('⚠️ API call successful but returned failure, setting not_enrolled');
+        setEnrollmentStatus('not_enrolled');
+      }
+    } catch (error) {
+      console.log('🚨 Error checking enrollment status:', error);
+      // On error, check localStorage or assume not enrolled
+      const cachedStatus = localStorage.getItem('workerEnrollmentStatus');
+      console.log('📋 Fallback to cache on error - Status:', cachedStatus);
+      setEnrollmentStatus(cachedStatus === 'enrolled' ? 'enrolled' : 'not_enrolled');
+    } finally {
+      console.log('✅ Enrollment check completed. Setting checkingEnrollment to false');
+      setCheckingEnrollment(false);
+    }
+  };
+  
+  const handleEnrollmentComplete = (enrollmentData) => {
+    setEnrollmentStatus('enrolled');
+    setCheckingEnrollment(false);
+    
+    // Refresh worker data and assignments after enrollment
+    if (worker) {
+      loadWorkerAssignments(worker._id, localStorage.getItem('authToken'));
+    }
+  };
   
   const checkAuthAndLoadData = () => {
     // Use correct localStorage keys as set by authUtils
@@ -585,6 +666,11 @@ const WorkerDashboard = () => {
       </div>
     );
   }
+  
+  // Optional: Log enrollment status for debugging
+  console.log('🖼️ Worker enrollment status:', enrollmentStatus);
+  
+  // No blocking enrollment check - continue to dashboard
 
   return (
     <div>
@@ -618,6 +704,7 @@ const WorkerDashboard = () => {
             <li><Link to="/worker">Dashboard</Link></li>
             <li><Link to="/worker/my-works">My Works</Link></li>
             <li><Link to="/worker/find-works">Find Works</Link></li>
+            <li><Link to="/worker/profile">👤 Profile</Link></li>
             <li>
               <span style={{color: '#FF9800', fontWeight: 'bold'}}>
                 👷 {worker?.firstName || 'Worker'}

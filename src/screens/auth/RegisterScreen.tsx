@@ -163,10 +163,10 @@ const RegisterScreen: React.FC = () => {
       };
 
       console.log('Sending registration data:', userData);
-      console.log('Registration URL:', 'http://192.168.29.93:3000/api/auth/register');
+      console.log('Registration URL:', 'http://10.0.8.184:3000/api/auth/register');
 
       // Make API call to register user
-      const response = await axios.post('http://192.168.29.93:3000/api/auth/register', userData);
+      const response = await axios.post('http://10.0.8.184:3000/api/auth/register', userData);
       
       if (response.data.success) {
         // Use the auth context to handle login

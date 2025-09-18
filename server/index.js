@@ -1792,13 +1792,16 @@ app.use((error, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const HOST = '0.0.0.0'; // Listen on all interfaces
+
+server.listen(PORT, HOST, () => {
+  console.log(`Server running on ${HOST}:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('💾 Database: MongoDB (Real database mode)');
   console.log('🔌 Socket.IO: Enabled for real-time updates');
-  console.log('🏠 Frontend should be running on: http://localhost:3001');
-  console.log('📝 API Endpoints: http://localhost:3000/api');
+  console.log('📱 Mobile app should connect to: http://10.0.8.184:${PORT}');
+  console.log('📝 API Endpoints: http://10.0.8.184:${PORT}/api');
+  console.log('🌐 Socket.IO: http://10.0.8.184:${PORT}');
 });
 
 module.exports = { app, server, io };

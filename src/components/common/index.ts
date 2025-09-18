@@ -5,8 +5,20 @@
 
 export { Button } from './Button';
 export { Card } from './Card';
-export { Input } from './Input';
-export { LoadingScreen } from './LoadingScreen';
+export { EmptyState } from './EmptyState';
 export { ErrorBoundary } from './ErrorBoundary';
 export { Header } from './Header';
-export { EmptyState } from './EmptyState';
+export { Input } from './Input';
+export { LoadingScreen } from './LoadingScreen';
+
+// Animated Components
+export {
+  FadeIn,
+  SlideInFromBottom,
+  ScaleIn,
+  Pulse,
+  Shimmer,
+  Stagger,
+  Bounce,
+  TypingText,
+} from './AnimatedComponents';

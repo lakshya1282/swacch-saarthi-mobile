@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SERVER_URL = 'http://192.168.29.93:3000';
+const API_BASE_URL = 'http://10.0.8.184:3000';
 
 export interface ServerHealth {
   isServerRunning: boolean;

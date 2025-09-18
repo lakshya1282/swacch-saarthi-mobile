@@ -14,7 +14,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants';
+import { COLORS, DESIGN_TOKENS } from '../../constants';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -139,13 +139,14 @@ export const Input: React.FC<InputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: DESIGN_TOKENS.SPACING.MD,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.SM,
+    fontWeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_WEIGHT.MEDIUM,
     color: COLORS.TEXT.PRIMARY,
-    marginBottom: 8,
+    marginBottom: DESIGN_TOKENS.SPACING.SM,
+    letterSpacing: 0.25,
   },
   required: {
     color: COLORS.ERROR,
@@ -154,45 +155,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.TEXT.LIGHT,
-    borderRadius: 8,
-    backgroundColor: COLORS.BACKGROUND.SECONDARY,
-    paddingHorizontal: 12,
-    height: 48,
+    borderColor: COLORS.BORDER.LIGHT,
+    borderRadius: DESIGN_TOKENS.BORDER_RADIUS.MD,
+    backgroundColor: COLORS.BACKGROUND.CARD,
+    paddingHorizontal: DESIGN_TOKENS.SPACING.MD,
+    height: 52,
+    ...DESIGN_TOKENS.SHADOWS.SMALL,
   },
   inputContainerFocused: {
-    borderColor: COLORS.PRIMARY,
+    borderColor: COLORS.BORDER.FOCUS,
     borderWidth: 2,
+    ...DESIGN_TOKENS.SHADOWS.COLORED,
   },
   inputContainerError: {
-    borderColor: COLORS.ERROR,
+    borderColor: COLORS.BORDER.ERROR,
+    borderWidth: 2,
   },
   inputContainerDisabled: {
-    backgroundColor: COLORS.BACKGROUND.PRIMARY,
+    backgroundColor: COLORS.BACKGROUND.SURFACE,
     opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.MD,
     color: COLORS.TEXT.PRIMARY,
-    paddingVertical: 12,
+    paddingVertical: DESIGN_TOKENS.SPACING.MD,
+    fontWeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_WEIGHT.NORMAL,
   },
   inputWithLeftIcon: {
-    paddingLeft: 8,
+    paddingLeft: DESIGN_TOKENS.SPACING.SM,
   },
   inputWithRightIcon: {
-    paddingRight: 8,
+    paddingRight: DESIGN_TOKENS.SPACING.SM,
   },
   leftIcon: {
-    marginRight: 8,
+    marginRight: DESIGN_TOKENS.SPACING.SM,
   },
   rightIconButton: {
-    padding: 4,
+    padding: DESIGN_TOKENS.SPACING.XS,
+    borderRadius: DESIGN_TOKENS.BORDER_RADIUS.SM,
   },
   error: {
-    fontSize: 12,
+    fontSize: DESIGN_TOKENS.TYPOGRAPHY.FONT_SIZE.XS,
     color: COLORS.ERROR,
-    marginTop: 4,
+    marginTop: DESIGN_TOKENS.SPACING.XS,
+    marginLeft: DESIGN_TOKENS.SPACING.XS,
+    fontWeight: DESIGN_TOKENS.TYPOGRAPHY.FONT_WEIGHT.MEDIUM,
   },
 });
 
