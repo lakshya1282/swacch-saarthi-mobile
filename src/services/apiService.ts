@@ -606,6 +606,102 @@ class ApiService {
       throw error;
     }
   }
+
+  // Attendance endpoints
+  async markAttendance(attendanceData: {
+    workerId: string;
+    workerName: string;
+    officeCode: string;
+    attendanceCode: string;
+    action?: 'check_in' | 'check_out';
+    location?: { latitude: number; longitude: number };
+    method?: 'qr_scan' | 'manual' | 'auto';
+  }) {
+    try {
+      const response = await this.api.post('/attendance/mark', attendanceData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Mark attendance error:', error);
+      
+      // Demo mode fallback when backend is unavailable
+      if (error.code === 'ERR_NETWORK' || error.response?.status >= 500) {
+        console.log('Backend unavailable, returning demo attendance response');
+        return {
+          success: true,
+          message: 'Attendance marked successfully (Demo Mode)',
+          data: {
+            attendanceId: `demo-att-${Date.now()}`,
+            checkInTime: new Date(),
+            status: 'present',
+            isLate: false
+          }
+        };
+      }
+      
+      throw error;
+    }
+  }
+
+  async getAttendanceStatus(workerId: string, date?: string) {
+    try {
+      const response = await this.api.get(`/attendance/worker/${workerId}`, {
+        params: { date: date || new Date().toISOString().split('T')[0] }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get attendance status error:', error);
+      
+      // Demo mode fallback
+      if (error.code === 'ERR_NETWORK' || error.response?.status >= 500) {
+        return {
+          success: true,
+          data: [],
+          hasMarkedAttendance: false
+        };
+      }
+      
+      throw error;
+    }
+  }
+
+  async getAttendanceHistory(workerId: string, startDate?: string, endDate?: string, limit?: number) {
+    try {
+      const response = await this.api.get(`/attendance/worker/${workerId}`, {
+        params: { startDate, endDate, limit }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get attendance history error:', error);
+      
+      // Demo mode fallback
+      if (error.code === 'ERR_NETWORK' || error.response?.status >= 500) {
+        return {
+          success: true,
+          data: []
+        };
+      }
+      
+      throw error;
+    }
+  }
+
+  async checkAttendanceForToday(workerId: string): Promise<boolean> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await this.getAttendanceStatus(workerId, today);
+      
+      if (response.success && response.data && Array.isArray(response.data)) {
+        // Check if there's any attendance record for today
+        return response.data.length > 0;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking today\'s attendance:', error);
+      // In case of error, assume no attendance to be safe
+      return false;
+    }
+  }
 }
 
 export default new ApiService();

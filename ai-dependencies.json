@@ -1,0 +1,32 @@
+{
+  "ai-waste-validation-dependencies": {
+    "tensorflow": {
+      "@tensorflow/tfjs": "^4.10.0",
+      "@tensorflow-models/mobilenet": "^2.1.0",
+      "@tensorflow-models/coco-ssd": "^2.2.2"
+    },
+    "react-native-specific": {
+      "@tensorflow/tfjs-react-native": "^0.8.0",
+      "@tensorflow/tfjs-platform-react-native": "^0.8.0"
+    },
+    "optional-for-enhanced-features": {
+      "react-native-fs": "^2.20.0",
+      "react-native-image-resizer": "^1.4.5"
+    }
+  },
+  "installation-commands": [
+    "npm install @tensorflow/tfjs @tensorflow-models/mobilenet",
+    "# For React Native (not Expo)",
+    "npm install @tensorflow/tfjs-react-native @tensorflow/tfjs-platform-react-native",
+    "# Optional for image processing",
+    "npm install @tensorflow-models/coco-ssd",
+    "# For better image handling",
+    "npm install react-native-fs react-native-image-resizer"
+  ],
+  "quick-start": {
+    "step1": "Copy .env.example to .env",
+    "step2": "Set REACT_APP_DEFAULT_AI_SERVICE=tensorflow", 
+    "step3": "Import and use: import aiService from './services/aiWasteValidation'",
+    "step4": "Call: await aiService.validateWaste(imageUri)"
+  }
+}

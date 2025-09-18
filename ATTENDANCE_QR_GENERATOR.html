@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance QR Code Generator - Waste Management</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #FF9800;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #FF9800;
+        }
+        button {
+            background: #FF9800;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #F57C00;
+        }
+        .qr-container {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px dashed #FF9800;
+            border-radius: 12px;
+            background: #FFF8E1;
+        }
+        .qr-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #E3F2FD;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
+        }
+        .qr-code {
+            margin: 20px 0;
+        }
+        .sample-codes {
+            margin-top: 30px;
+            padding: 20px;
+            background: #F3E5F5;
+            border-radius: 8px;
+            border-left: 4px solid #9C27B0;
+        }
+        .sample-codes h3 {
+            color: #7B1FA2;
+            margin-top: 0;
+        }
+        .sample-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .sample-item:hover {
+            background: #E1BEE7;
+        }
+        .sample-item code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .warning {
+            background: #FFF3E0;
+            border: 1px solid #FFB74D;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #E65100;
+        }
+        .success {
+            background: #E8F5E8;
+            border: 1px solid #4CAF50;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #2E7D32;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🕐 Attendance QR Code Generator</h1>
+        <p class="subtitle">Generate QR codes for worker attendance marking in the Waste Management App</p>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> These QR codes are for testing purposes. In production, office administrators would generate these through the dashboard.
+        </div>
+
+        <div class="form-group">
+            <label for="officeCode">Office Code:</label>
+            <input type="text" id="officeCode" placeholder="Enter office code (e.g., WM001)" value="WM001">
+            <small style="color: #666; font-size: 14px;">This should match the office code configured in your system</small>
+        </div>
+
+        <div class="form-group">
+            <label for="date">Date:</label>
+            <input type="date" id="date">
+            <small style="color: #666; font-size: 14px;">Attendance date (usually today)</small>
+        </div>
+
+        <button onclick="generateAttendanceQR()">Generate Attendance QR Code</button>
+
+        <div id="qr-result" class="qr-container" style="display: none;">
+            <h3>📱 Scan this QR code in the Worker app</h3>
+            <div class="qr-code" id="qr-code"></div>
+            <div class="qr-info">
+                <strong>Attendance Code:</strong> <code id="attendance-code"></code><br>
+                <strong>Office:</strong> <span id="office-display"></span><br>
+                <strong>Date:</strong> <span id="date-display"></span><br>
+                <strong>Generated:</strong> <span id="timestamp"></span>
+            </div>
+            <button onclick="downloadQR()">💾 Download QR Code</button>
+        </div>
+
+        <div class="sample-codes">
+            <h3>📋 Sample Office Codes</h3>
+            <p>Click any sample to use it:</p>
+            
+            <div class="sample-item" onclick="useOfficeCode('WM001')">
+                <strong>Main Office:</strong> <code>WM001</code> - Primary waste management office
+            </div>
+            
+            <div class="sample-item" onclick="useOfficeCode('WM002')">
+                <strong>North Zone:</strong> <code>WM002</code> - North zone collection center
+            </div>
+            
+            <div class="sample-item" onclick="useOfficeCode('WM003')">
+                <strong>South Zone:</strong> <code>WM003</code> - South zone collection center
+            </div>
+            
+            <div class="sample-item" onclick="useOfficeCode('WM004')">
+                <strong>East Zone:</strong> <code>WM004</code> - East zone collection center
+            </div>
+            
+            <div class="sample-item" onclick="useOfficeCode('WM005')">
+                <strong>West Zone:</strong> <code>WM005</code> - West zone collection center
+            </div>
+        </div>
+
+        <div class="success">
+            <strong>✅ How to test:</strong><br>
+            1. Generate an attendance QR code using the form above<br>
+            2. Open the Worker app and login with worker credentials<br>
+            3. The app will show the attendance screen automatically<br>
+            4. Scan the generated QR code to mark attendance<br>
+            5. Once attendance is marked, you can access work tasks
+        </div>
+    </div>
+
+    <script>
+        // Set today's date by default
+        document.getElementById('date').valueAsDate = new Date();
+
+        function useOfficeCode(code) {
+            document.getElementById('officeCode').value = code;
+            document.getElementById('officeCode').focus();
+        }
+
+        function generateAttendanceQR() {
+            const officeCode = document.getElementById('officeCode').value.trim().toUpperCase();
+            const date = document.getElementById('date').value;
+            
+            if (!officeCode) {
+                alert('Please enter an office code');
+                return;
+            }
+            
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+
+            // Format: ATT-OFFICE_CODE (e.g., ATT-WM001)
+            const attendanceCode = `ATT-${officeCode}`;
+            
+            // Generate QR code
+            const canvas = document.createElement('canvas');
+            QRCode.toCanvas(canvas, attendanceCode, {
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            }, function (error) {
+                if (error) {
+                    console.error('Error generating QR code:', error);
+                    alert('Error generating QR code: ' + error);
+                    return;
+                }
+                
+                // Display the QR code
+                const qrCodeDiv = document.getElementById('qr-code');
+                qrCodeDiv.innerHTML = '';
+                qrCodeDiv.appendChild(canvas);
+                
+                // Update info
+                document.getElementById('attendance-code').textContent = attendanceCode;
+                document.getElementById('office-display').textContent = officeCode;
+                document.getElementById('date-display').textContent = new Date(date).toLocaleDateString();
+                document.getElementById('timestamp').textContent = new Date().toLocaleString();
+                
+                // Show result
+                document.getElementById('qr-result').style.display = 'block';
+                document.getElementById('qr-result').scrollIntoView({ behavior: 'smooth' });
+            });
+        }
+
+        function downloadQR() {
+            const canvas = document.querySelector('#qr-code canvas');
+            if (!canvas) {
+                alert('No QR code to download');
+                return;
+            }
+            
+            const officeCode = document.getElementById('officeCode').value.trim().toUpperCase();
+            const date = document.getElementById('date').value;
+            const filename = `attendance-qr-${officeCode}-${date}.png`;
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Generate a sample QR code on page load
+        setTimeout(() => {
+            generateAttendanceQR();
+        }, 500);
+    </script>
+</body>
+</html>

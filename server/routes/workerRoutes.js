@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const Worker = require('../models/Worker');
+const User = require('../models/User');
+const Office = require('../models/Office');
 
 // In-memory storage (replace with database in production)
 let workers = [];
@@ -437,6 +440,385 @@ router.get('/stats/:workerId', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch worker statistics',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Verify office enrollment code
+ * POST /api/worker/verify-office-code
+ */
+router.post('/verify-office-code', async (req, res) => {
+  try {
+    const { officeCode } = req.body;
+    
+    if (!officeCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Office code is required'
+      });
+    }
+    
+    // Find office by office code
+    const office = await Office.findOne({ officeCode: officeCode.toUpperCase() });
+    
+    if (!office) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid office code. Please check and try again.'
+      });
+    }
+    
+    // Return office information without sensitive data
+    res.json({
+      success: true,
+      office: {
+        _id: office._id,
+        officeName: office.officeName,
+        officeCode: office.officeCode,
+        address: office.address,
+        contactInfo: office.contactInfo,
+        operationalHours: office.operationalHours
+      },
+      message: `Office found: ${office.officeName}`
+    });
+    
+  } catch (error) {
+    console.error('Error verifying office code:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify office code',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Enroll worker in office
+ * POST /api/worker/enroll-in-office
+ */
+router.post('/enroll-in-office', async (req, res) => {
+  try {
+    const { workerId, officeCode } = req.body;
+    
+    if (!workerId || !officeCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Worker ID and office code are required'
+      });
+    }
+    
+    // Find the office
+    const office = await Office.findOne({ officeCode: officeCode.toUpperCase() });
+    if (!office) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid office code'
+      });
+    }
+    
+    // Find the worker (stored in User collection)
+    const worker = await User.findById(workerId);
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: 'Worker not found'
+      });
+    }
+    
+    if (worker.userType !== 'worker') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not a worker'
+      });
+    }
+    
+    // Check if worker is already enrolled in this office
+    if (worker.officeCode === office.officeCode && worker.enrollmentStatus === 'enrolled') {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already enrolled in this office'
+      });
+    }
+    
+    // Enroll the worker
+    worker.officeId = office._id;
+    worker.officeCode = office.officeCode;
+    worker.enrollmentStatus = 'enrolled';
+    worker.enrolledAt = new Date();
+    
+    await worker.save();
+    
+    // Update office statistics
+    office.statistics.totalWorkers += 1;
+    if (worker.isActive) {
+      office.statistics.activeWorkers += 1;
+    }
+    await office.save();
+    
+    res.json({
+      success: true,
+      message: `Successfully enrolled in ${office.officeName}`,
+      enrollment: {
+        officeId: office._id,
+        officeName: office.officeName,
+        officeCode: office.officeCode,
+        enrolledAt: worker.enrolledAt,
+        status: 'enrolled'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error enrolling worker:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to enroll in office',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get worker enrollment status
+ * GET /api/worker/enrollment-status/:workerId
+ */
+router.get('/enrollment-status/:workerId', async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    // Find the worker with office information (stored in User collection)
+    const worker = await User.findById(workerId).populate('officeId', 'officeName officeCode address contactInfo');
+    
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: 'Worker not found'
+      });
+    }
+    
+    if (worker.userType !== 'worker') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not a worker'
+      });
+    }
+    
+    res.json({
+      success: true,
+      enrollment: {
+        status: worker.enrollmentStatus,
+        officeCode: worker.officeCode,
+        enrolledAt: worker.enrolledAt,
+        office: worker.officeId ? {
+          _id: worker.officeId._id,
+          officeName: worker.officeId.officeName,
+          officeCode: worker.officeId.officeCode,
+          address: worker.officeId.address,
+          contactInfo: worker.officeId.contactInfo
+        } : null
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching enrollment status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch enrollment status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get worker profile (enhanced version with office info)
+ * GET /api/worker/profile/:workerId
+ */
+router.get('/profile/:workerId', async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    // First check if this is a Worker document
+    const worker = await Worker.findById(workerId)
+      .populate('officeId', 'officeName officeCode address contactInfo')
+      .select('-password');
+    
+    if (worker) {
+      return res.json({
+        success: true,
+        data: {
+          ...worker.toObject(),
+          isWorkerModel: true,
+          profileType: 'worker'
+        }
+      });
+    }
+    
+    // Fallback to User model
+    const user = await User.findById(workerId)
+      .populate('officeId', 'officeName officeCode address contactInfo')
+      .select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Worker profile not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        ...user.toObject(),
+        isWorkerModel: false,
+        profileType: 'user'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching worker profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch profile',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Update worker profile
+ * PUT /api/worker/profile/:workerId
+ */
+router.put('/profile/:workerId', async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const updates = req.body;
+    
+    // Remove sensitive fields
+    delete updates.password;
+    delete updates.officeId;
+    delete updates.officeCode;
+    delete updates.enrollmentStatus;
+    delete updates.enrolledAt;
+    
+    // Check if Worker document exists
+    let worker = await Worker.findById(workerId);
+    
+    if (worker) {
+      Object.keys(updates).forEach(key => {
+        if (key in worker.toObject()) {
+          worker[key] = updates[key];
+        }
+      });
+      
+      await worker.save();
+      
+      const updatedWorker = await Worker.findById(workerId)
+        .populate('officeId', 'officeName officeCode address contactInfo')
+        .select('-password');
+      
+      return res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: updatedWorker
+      });
+    }
+    
+    // Fallback to User model
+    const user = await User.findByIdAndUpdate(
+      workerId,
+      { ...updates, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Worker profile not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: user
+    });
+    
+  } catch (error) {
+    console.error('Error updating worker profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get worker performance metrics
+ * GET /api/worker/performance/:workerId
+ */
+router.get('/performance/:workerId', async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { period = 'month' } = req.query;
+    
+    const WorkerPerformance = require('../models/WorkerPerformance');
+    
+    // Calculate date range
+    const now = new Date();
+    let start, end;
+    
+    if (period === 'week') {
+      start = new Date(now.setDate(now.getDate() - 7));
+      end = new Date();
+    } else if (period === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else {
+      start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      end = new Date();
+    }
+    
+    // Get performance records
+    const performanceRecords = await WorkerPerformance.find({
+      workerId: workerId,
+      date: { $gte: start, $lte: end }
+    }).sort({ date: -1 });
+    
+    // Calculate metrics
+    const totalWeight = performanceRecords.reduce((sum, record) => sum + (record.wasteCollection.totalWeight || 0), 0);
+    const totalPickups = performanceRecords.reduce((sum, record) => sum + (record.wasteCollection.pickupsCompleted || 0), 0);
+    const totalIncentives = performanceRecords.reduce((sum, record) => sum + (record.incentive.earnedAmount || 0), 0);
+    const avgEfficiency = performanceRecords.length > 0 ? 
+      performanceRecords.reduce((sum, record) => sum + (record.summary.efficiency || 0), 0) / performanceRecords.length : 0;
+    
+    res.json({
+      success: true,
+      data: {
+        workerId,
+        period: { start, end, type: period },
+        metrics: {
+          attendance: {
+            daysWorked: performanceRecords.length,
+            rate: Math.round((performanceRecords.length / 30) * 100) // Assuming 30-day month
+          },
+          performance: {
+            totalWeight: Math.round(totalWeight * 100) / 100,
+            totalPickups,
+            averageEfficiency: Math.round(avgEfficiency),
+            totalIncentives: Math.round(totalIncentives * 100) / 100
+          }
+        },
+        dailyRecords: performanceRecords.slice(0, 10) // Latest 10 records
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching worker performance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch performance data',
       error: error.message
     });
   }

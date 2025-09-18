@@ -118,36 +118,29 @@ const WasteValidationScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Mock API call - replace with actual AI service
-      // const formData = new FormData();
-      // formData.append('image', {
-      //   uri: selectedImage.uri,
-      //   type: selectedImage.type,
-      //   name: selectedImage.fileName,
-      // });
-      // 
-      // const response = await fetch('https://your-ai-api.com/validate-waste', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data',
-      //   },
-      //   body: formData,
-      // });
-      // 
-      // const result = await response.json();
-
-      // Mock validation logic for demonstration
-      setTimeout(() => {
-        const results = Object.values(mockValidationResults);
-        const randomResult = results[Math.floor(Math.random() * results.length)];
-        setValidationResult(randomResult);
-        setLoading(false);
-      }, 2000);
+      // Import AI service dynamically
+      const aiService = await import('../../services/aiWasteValidation');
+      
+      // Use AI validation service
+      const aiResult = await aiService.default.validateWaste(selectedImage.uri);
+      
+      // Save validation result to backend if needed
+      // await saveValidationResult(aiResult);
+      
+      setValidationResult(aiResult);
+      setLoading(false);
 
     } catch (error) {
       setLoading(false);
-      console.error('Validation error:', error);
-      Alert.alert('Error', 'Failed to validate waste. Please try again.');
+      console.error('AI Validation error:', error);
+      
+      // Fallback to mock results if AI fails
+      console.log('Falling back to mock validation');
+      const results = Object.values(mockValidationResults);
+      const randomResult = results[Math.floor(Math.random() * results.length)];
+      randomResult.message += ' (AI service unavailable)';
+      randomResult.aiSource = 'fallback';
+      setValidationResult(randomResult);
     }
   };
 

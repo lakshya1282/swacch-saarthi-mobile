@@ -83,6 +83,7 @@ io.on('connection', (socket) => {
   });
 });
 
+
 // Helper function to emit pickup updates
 const emitPickupUpdate = (eventType, pickupData) => {
   // Emit to all workers
@@ -95,7 +96,28 @@ const emitPickupUpdate = (eventType, pickupData) => {
   // Also emit specific event types
   io.to('workers').emit(eventType, pickupData);
   
-  console.log(`📡 Emitted ${eventType} to workers`);
+  // Emit to citizens room as well for status updates
+  if (pickupData.citizenId) {
+    io.to(`citizen-${pickupData.citizenId}`).emit('pickup-update', {
+      type: eventType,
+      data: pickupData,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  console.log(`📡 Emitted ${eventType} to workers${pickupData.citizenId ? ' and citizen ' + pickupData.citizenId : ''}`);
+};
+
+// Helper function to emit task removal to all workers except the one who accepted it
+const emitTaskNoLongerAvailable = (taskData, acceptingWorkerId) => {
+  // Emit to all workers except the one who accepted it
+  io.to('workers').emit('task-no-longer-available', {
+    ...taskData,
+    acceptedBy: acceptingWorkerId,
+    timestamp: new Date().toISOString()
+  });
+  
+  console.log(`📡 Notified all workers that task ${taskData.taskId} is no longer available (accepted by ${acceptingWorkerId})`);
 };
 
 // Models
@@ -146,9 +168,25 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Import Socket.IO handlers first
+const { 
+  handleDashboardConnection, 
+  emitWorkerLocationUpdate, 
+  emitPickupCompletion, 
+  emitSystemAlert 
+} = require('./socketHandlers/dashboardSocket');
+
 // Import Routes
-const pickupRoutes = require('./routes/pickupRoutes');
+const pickupRoutes = require('./routes/pickupRoutesDB'); // Use database-integrated routes
 const workerRoutes = require('./routes/workerRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const aadhaarRoutes = require('./routes/aadhaarRoutes'); // Aadhaar authentication routes
+
+// Initialize dashboard Socket.IO namespace
+app.locals.io = io; // Make io available to routes
+const dashboardNamespace = handleDashboardConnection(io);
+console.log('📱 Dashboard Socket.IO namespace initialized');
 
 // Routes
 
@@ -174,11 +212,116 @@ app.get('/api/health', (req, res) => {
   }
 });
 
+// Debug endpoint for authentication testing (Development only)
+app.post('/api/debug/auth-test', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    console.log('🔍 Debug auth test for:', email);
+    
+    if (!isMongoConnected) {
+      return res.json({
+        success: false,
+        debug: true,
+        message: 'MongoDB is not connected',
+        mongoConnected: false
+      });
+    }
+    
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    
+    if (!user) {
+      return res.json({
+        success: false,
+        debug: true,
+        message: 'User not found in database',
+        email: email,
+        mongoConnected: true,
+        userFound: false
+      });
+    }
+    
+    // Test password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    
+    res.json({
+      success: isValidPassword,
+      debug: true,
+      message: isValidPassword ? 'Authentication successful' : 'Password mismatch',
+      mongoConnected: true,
+      userFound: true,
+      passwordValid: isValidPassword,
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userType: user.userType,
+        isActive: user.isActive
+      }
+    });
+    
+  } catch (error) {
+    console.error('🚨 Debug auth error:', error);
+    res.status(500).json({
+      success: false,
+      debug: true,
+      message: 'Debug auth test failed',
+      error: error.message
+    });
+  }
+});
+
+// Debug endpoint to list users (Development only)
+app.get('/api/debug/list-users', async (req, res) => {
+  try {
+    if (!isMongoConnected) {
+      return res.json({
+        success: false,
+        message: 'MongoDB is not connected',
+        users: []
+      });
+    }
+    
+    const users = await User.find({}).select('firstName lastName email phone userType isActive createdAt').limit(10);
+    
+    res.json({
+      success: true,
+      message: `Found ${users.length} users`,
+      count: users.length,
+      users: users.map(user => ({
+        id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        phone: user.phone,
+        userType: user.userType,
+        isActive: user.isActive,
+        createdAt: user.createdAt
+      }))
+    });
+    
+  } catch (error) {
+    console.error('🚨 Debug list users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to list users',
+      error: error.message
+    });
+  }
+});
+
 // Use pickup routes with QR code support
 app.use('/api/pickups', pickupRoutes);
 
-// Use worker routes for assignment management
+// Use worker routes for assignment management and profile
 app.use('/api/worker', workerRoutes);
+
+// Use dashboard routes for office operations
+app.use('/api/dashboard', dashboardRoutes);
+
+// Use Aadhaar authentication routes for workers
+app.use('/api/aadhaar', aadhaarRoutes);
 
 // QR validation endpoint - Verify pickup code
 app.post('/api/qr/validate', async (req, res) => {
@@ -382,22 +525,23 @@ app.post('/api/worker/tasks/:taskId/accept', authenticateToken, async (req, res)
     if (result.success) {
       console.log(`✅ Task ${taskId} successfully accepted by worker ${workerId}`);
       
-      // Emit real-time update to all workers
+      // Emit real-time update to all workers about the assignment
       emitPickupUpdate('pickup-assigned', {
         pickupId: result.pickup._id,
         taskId: taskId,
         status: 'assigned',
         workerId: workerId,
         workerName: workerName,
-        assignedAt: result.pickup.assignedAt
+        assignedAt: result.pickup.assignedAt,
+        citizenId: result.pickup.citizenId
       });
       
-      // Also emit to hide task from other workers' dashboards immediately
-      emitPickupUpdate('task-no-longer-available', {
+      // Immediately notify all workers that this task is no longer available
+      emitTaskNoLongerAvailable({
         pickupId: result.pickup._id,
         taskId: taskId,
-        assignedWorkerId: workerId
-      });
+        originalStatus: 'scheduled'
+      }, workerId);
       
       res.json({
         success: true,
@@ -619,23 +763,95 @@ app.get('/api/worker/tasks/:taskId', authenticateToken, async (req, res) => {
   }
 });
 
-// Additional worker task endpoints
+// Additional worker task endpoints - Returns only available/unassigned tasks
 app.get('/api/worker/tasks', authenticateToken, async (req, res) => {
   try {
-    // Return all pickups as tasks for workers
+    // Return only available/unassigned pickups as tasks for workers
     const Pickup = require('./models/Pickup');
-    const tasks = await Pickup.find().sort({ createdAt: -1 });
+    
+    // Find only tasks that are scheduled/pending and not assigned to any worker
+    const availableTasks = await Pickup.find({
+      status: { $in: ['scheduled', 'pending'] },
+      workerId: null // Ensure no worker is already assigned
+    }).populate('citizenId', 'firstName lastName phone address location')
+      .sort({ createdAt: -1 });
     
     res.json({
       success: true,
-      tasks: tasks,
-      count: tasks.length
+      tasks: availableTasks,
+      count: availableTasks.length,
+      message: `Found ${availableTasks.length} available tasks`
     });
   } catch (error) {
-    console.error('Error fetching worker tasks:', error);
+    console.error('Error fetching available worker tasks:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch available tasks', 
+      error: error.message 
+    });
+  }
+});
+
+// Get all tasks for worker (including assigned to them)
+app.get('/api/worker/all-tasks', authenticateToken, async (req, res) => {
+  try {
+    const Pickup = require('./models/Pickup');
+    const workerId = req.user?.userId || req.user?.id;
+    
+    // Get tasks assigned to this worker + available tasks
+    const workerTasks = await Pickup.find({
+      $or: [
+        { workerId: workerId }, // Tasks assigned to this worker
+        { status: { $in: ['scheduled', 'pending'] }, workerId: null } // Available tasks
+      ]
+    }).populate('citizenId', 'firstName lastName phone address location')
+      .sort({ createdAt: -1 });
+    
+    // Separate into assigned and available
+    const assignedTasks = workerTasks.filter(task => task.workerId === workerId);
+    const availableTasks = workerTasks.filter(task => !task.workerId);
+    
+    res.json({
+      success: true,
+      assignedTasks,
+      availableTasks,
+      totalAssigned: assignedTasks.length,
+      totalAvailable: availableTasks.length
+    });
+  } catch (error) {
+    console.error('Error fetching all worker tasks:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch tasks', 
+      error: error.message 
+    });
+  }
+});
+
+// Get only available tasks (most commonly used by worker dashboard)
+app.get('/api/worker/available-tasks', authenticateToken, async (req, res) => {
+  try {
+    const Pickup = require('./models/Pickup');
+    
+    // Find only unassigned, scheduled tasks
+    const availableTasks = await Pickup.find({
+      status: { $in: ['scheduled', 'pending'] },
+      workerId: null,
+      scheduledDate: { $gte: new Date() } // Only future or today's tasks
+    }).populate('citizenId', 'firstName lastName phone address location')
+      .sort({ scheduledDate: 1, createdAt: -1 }); // Sort by scheduled date first, then creation date
+    
+    res.json({
+      success: true,
+      tasks: availableTasks,
+      count: availableTasks.length,
+      message: `Found ${availableTasks.length} tasks available for assignment`
+    });
+  } catch (error) {
+    console.error('Error fetching available tasks:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch available tasks', 
       error: error.message 
     });
   }
@@ -793,94 +1009,152 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  // Check if MongoDB is connected
-  if (!isMongoConnected) {
-    const { email, password } = req.body;
-    
-    // Demo login - accept any credentials
-    const demoUser = {
-      id: 'demo_user_123',
-      firstName: 'Demo',
-      lastName: 'User',
-      email: email,
-      phone: '9999999999',
-      address: 'Demo Address',
-      userType: email.includes('worker') ? 'worker' : 'citizen',
-      location: { latitude: 20.5937, longitude: 78.9629 }
-    };
-    
-    const token = jwt.sign(
-      { userId: demoUser.id, email: demoUser.email, userType: demoUser.userType },
-      process.env.JWT_SECRET || 'waste-management-secret',
-      { expiresIn: '7d' }
-    );
-    
-    console.log('📝 Demo login (MongoDB not connected):', email);
-    
-    return res.json({
-      success: true,
-      message: 'Login successful (Demo mode - Database not connected)',
-      token,
-      user: demoUser,
-      demoMode: true
-    });
-  }
-  
   try {
+    console.log('🚀 Login request received');
     const { email, password } = req.body;
-
-    // Find user
-    const user = await User.findOne({ email });
+    
+    // Input validation
+    if (!email || !password) {
+      console.log('❌ Missing email or password');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email and password are required' 
+      });
+    }
+    
+    // Normalize email to lowercase
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log(`🔍 Searching for user with email: ${normalizedEmail}`);
+    
+    // Check if MongoDB is connected
+    if (!isMongoConnected) {
+      console.log('⚠️ MongoDB not connected - using demo mode');
+      
+      // Demo login with hardcoded credentials validation
+      const demoCredentials = {
+        'citizen@demo.com': { password: 'demo123', userType: 'citizen' },
+        'worker@demo.com': { password: 'demo123', userType: 'worker' },
+        'lakshyapratap5911@gmail.com': { password: 'demo123', userType: 'citizen' },
+      };
+      
+      const demoUser = demoCredentials[normalizedEmail];
+      if (!demoUser || demoUser.password !== password) {
+        console.log(`❌ Demo login failed for: ${normalizedEmail}`);
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid email or password (Demo Mode)' 
+        });
+      }
+      
+      const userResponse = {
+        id: 'demo_user_' + Date.now(),
+        firstName: 'Demo',
+        lastName: 'User',
+        email: normalizedEmail,
+        phone: '9999999999',
+        address: 'Demo Address',
+        userType: demoUser.userType,
+        location: { latitude: 20.5937, longitude: 78.9629 }
+      };
+      
+      const token = jwt.sign(
+        { userId: userResponse.id, email: userResponse.email, userType: userResponse.userType },
+        process.env.JWT_SECRET || 'waste-management-secret',
+        { expiresIn: '7d' }
+      );
+      
+      console.log(`✅ Demo login successful: ${normalizedEmail}`);
+      
+      return res.json({
+        success: true,
+        message: 'Login successful (Demo mode - Database not connected)',
+        token,
+        user: userResponse,
+        demoMode: true
+      });
+    }
+    
+    // MongoDB is connected - use real authentication
+    console.log('📊 Checking MongoDB for user credentials...');
+    
+    // Find user by email
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
+      console.log(`❌ User not found: ${normalizedEmail}`);
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid email or password' 
       });
     }
-
-    // Check password
+    
+    console.log(`✅ User found: ${user.firstName} ${user.lastName} (${user.userType})`);
+    console.log(`🔐 Validating password...`);
+    
+    // Validate password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      console.log(`❌ Invalid password for user: ${normalizedEmail}`);
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid email or password' 
       });
     }
-
+    
+    console.log(`🎉 Password validated successfully!`);
+    
+    // Check if user is active
+    if (!user.isActive) {
+      console.log(`❌ User account is deactivated: ${normalizedEmail}`);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Account is deactivated. Please contact support.' 
+      });
+    }
+    
     // Generate JWT token
     const token = jwt.sign(
       { 
-        userId: user._id, 
+        userId: user._id.toString(), 
         email: user.email, 
-        userType: user.userType 
+        userType: user.userType,
+        name: user.fullName
       },
       process.env.JWT_SECRET || 'waste-management-secret',
       { expiresIn: '7d' }
     );
-
+    
+    console.log(`🔑 JWT token generated for user: ${user._id}`);
+    
+    // Prepare user response (exclude sensitive data)
+    const userResponse = {
+      id: user._id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      userType: user.userType,
+      location: user.location,
+      isVerified: user.isVerified,
+      totalPickups: user.totalPickups,
+      rating: user.rating
+    };
+    
     console.log(`✅ Login successful: ${user.firstName} ${user.lastName} (${user.userType})`);
-
+    
     res.json({
       success: true,
       message: 'Login successful',
       token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        phone: user.phone,
-        address: user.address,
-        userType: user.userType,
-        location: user.location,
-      },
+      user: userResponse
     });
+    
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('🚨 Login error:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Login failed', 
-      error: error.message 
+      message: 'Server error during login', 
+      error: __DEV__ ? error.message : 'Internal server error'
     });
   }
 });
@@ -940,8 +1214,8 @@ app.post('/api/pickups/schedule', authenticateToken, async (req, res) => {
 
     await pickup.save();
     
-    // Emit real-time update to workers
-    emitPickupUpdate('new-pickup', {
+    // Emit real-time update to workers about new available task
+    emitPickupUpdate('new-pickup-available', {
       id: pickup._id,
       pickupId: pickup.pickupId || pickup._id,
       citizenId: pickup.citizenId,
@@ -950,25 +1224,14 @@ app.post('/api/pickups/schedule', authenticateToken, async (req, res) => {
       timeSlot: pickup.timeSlot,
       scheduledDate: pickup.scheduledDate,
       status: pickup.status,
-      address: pickup.address || 'Address to be updated',
-      createdAt: pickup.createdAt
+      address: pickup.customerAddress || 'Address provided by customer',
+      customerName: pickup.customerName,
+      customerPhone: pickup.customerPhone,
+      createdAt: pickup.createdAt,
+      verificationCode: pickup.verificationCode
     });
-
-    // In a real app, you would implement worker assignment logic here
-    // For now, we'll simulate immediate assignment
-    setTimeout(async () => {
-      pickup.status = 'assigned';
-      pickup.workerId = 'worker_123'; // Mock worker assignment
-      await pickup.save();
-      
-      // Emit status update
-      emitPickupUpdate('pickup-assigned', {
-        id: pickup._id,
-        pickupId: pickup.pickupId || pickup._id,
-        status: 'assigned',
-        workerId: pickup.workerId
-      });
-    }, 2000);
+    
+    console.log(`✅ New pickup scheduled: ${pickup.pickupId} for user ${req.user.userId}`);
 
     res.status(201).json({
       success: true,
@@ -1769,6 +2032,9 @@ app.put('/api/worker/assignment/:id/complete', authenticateToken, async (req, re
     });
   }
 });
+
+// Mount route handlers
+app.use('/api', attendanceRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
