@@ -11,15 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { getApiBaseUrl } from '../../config/env';
 
-const API_BASE_URL = Platform.select({
-  android: 'http://192.168.29.93:3000/api', // Your IP
-  ios: 'http://localhost:3000/api',
-});
+const API_BASE_URL = getApiBaseUrl();
 
 const AadhaarRegisterScreen = ({ navigation }) => {
   const [step, setStep] = useState(1);

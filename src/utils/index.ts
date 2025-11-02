@@ -334,7 +334,7 @@ export const getApiBaseUrl = (): string => {
   
   // Always use the actual IP address in development
   // This works for both physical devices and emulators on the same network
-  return 'http://10.0.8.184:3000/api';
+  return 'http://192.168.29.154:3000/api';
 };
 
 /**

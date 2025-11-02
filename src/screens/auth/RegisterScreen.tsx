@@ -14,7 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
-
+import { getApiBaseUrl } from '../../config/env';
 interface FormData {
   firstName: string;
   lastName: string;
@@ -162,11 +162,12 @@ const RegisterScreen: React.FC = () => {
         },
       };
 
+      const apiUrl = getApiBaseUrl();
       console.log('Sending registration data:', userData);
-      console.log('Registration URL:', 'http://10.0.8.184:3000/api/auth/register');
+      console.log('Registration URL:', `${apiUrl}/auth/register`);
 
       // Make API call to register user
-      const response = await axios.post('http://10.0.8.184:3000/api/auth/register', userData);
+      const response = await axios.post(`${apiUrl}/auth/register`, userData);
       
       if (response.data.success) {
         // Use the auth context to handle login

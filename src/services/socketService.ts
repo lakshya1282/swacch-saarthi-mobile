@@ -1,13 +1,10 @@
 import io, { Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSocketUrls } from '../config/env';
 
 class SocketService {
   private socket: Socket | null = null;
-  private serverUrls: string[] = [
-    'http://192.168.29.93:3000',    // Primary: Current network IP
-    'http://localhost:3000',        // Fallback for emulator
-    'http://10.0.2.2:3000',         // Android emulator specific
-  ];
+  private serverUrls: string[] = getSocketUrls();
   private currentUrlIndex: number = 0;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;

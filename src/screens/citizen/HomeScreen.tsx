@@ -149,6 +149,13 @@ const HomeScreen: React.FC = () => {
       onPress: () => navigation.navigate('Schedule' as never),
     },
     {
+      title: 'Register Complaint',
+      subtitle: 'Report pickup issues',
+      icon: 'report-problem',
+      color: '#f44336',
+      onPress: () => navigation.navigate('ComplaintRegistration' as never),
+    },
+    {
       title: 'Training Videos',
       subtitle: 'Learn waste segregation',
       icon: 'school',

@@ -21,6 +21,7 @@ import WasteValidationScreen from './src/screens/citizen/WasteValidationScreen';
 import QRCodeScreen from './src/screens/citizen/QRCodeScreen';
 import SettingsScreen from './src/screens/citizen/SettingsScreen';
 import PickupHistoryScreen from './src/screens/citizen/PickupHistoryScreen';
+import ComplaintRegistrationScreen from './src/screens/citizen/ComplaintRegistrationScreen';
 
 // Worker screens
 import WorkerHomeScreen from './src/screens/worker/WorkerHomeScreen';
@@ -28,6 +29,10 @@ import WorkerTasksScreen from './src/screens/worker/WorkerTasksScreen';
 import WorkerScannerScreen from './src/screens/worker/WorkerScannerScreen';
 import WorkerProfileScreen from './src/screens/worker/WorkerProfileScreen';
 import AttendanceScreen from './src/screens/worker/AttendanceScreen';
+
+// Admin screens
+import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
+import AdminComplaintsScreen from './src/screens/admin/AdminComplaintsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -140,6 +145,16 @@ function AppNavigator() {
               component={PickupHistoryScreen}
               options={{ headerShown: true, headerTitle: 'Pickup History' }}
             />
+            <Stack.Screen 
+              name="ComplaintRegistration" 
+              component={ComplaintRegistrationScreen}
+              options={{ headerShown: false }}
+            />
+          </>
+        ) : userType === 'admin' ? (
+          <>
+            <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+            <Stack.Screen name="AdminComplaints" component={AdminComplaintsScreen} />
           </>
         ) : (
           <>

@@ -7,7 +7,15 @@ const multer = require('multer');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
+const https = require('https');
 require('dotenv').config();
+
+// Fix for Node.js OpenSSL issues on Windows
+if (process.env.NODE_ENV === 'development') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  // Enable legacy OpenSSL provider for Windows compatibility
+  process.env.NODE_OPTIONS = '--openssl-legacy-provider';
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -29,12 +37,37 @@ let isMongoConnected = false;
 
 const connectToMongoDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/waste-management', {
-      serverSelectionTimeoutMS: 5000,
+    const connectionString = process.env.MONGODB_URI || 'mongodb://localhost:27017/waste-management';
+    await mongoose.connect(connectionString, {
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      family: 4,
+      autoIndex: true,
     });
     isMongoConnected = true;
+    
+    // Display detailed connection information
+    const conn = mongoose.connection;
     console.log('✅ MongoDB connected successfully');
+    console.log('   📊 Connection Details:');
+    console.log('   ├─ Host:', conn.host);
+    console.log('   ├─ Database:', conn.name);
+    console.log('   ├─ Port:', conn.port);
+    
+    // Check if it's Atlas or local
+    if (conn.host && conn.host.includes('mongodb.net')) {
+      console.log('   └─ Type: ☁️  MongoDB ATLAS (Cloud Database)');
+      // Extract cluster name from host
+      const clusterMatch = conn.host.match(/([^.]+)\.mongodb\.net/);
+      if (clusterMatch) {
+        console.log('      Cluster: Swachh-Saarthi ✨');
+      }
+    } else if (conn.host === 'localhost' || conn.host === '127.0.0.1') {
+      console.log('   └─ Type: 💻 Local MongoDB');
+    }
   } catch (err) {
     console.warn('⚠️ MongoDB connection failed:', err.message);
     console.log('📝 Running in demo mode without database');
@@ -47,7 +80,11 @@ connectToMongoDB();
 
 mongoose.connection.on('connected', () => {
   isMongoConnected = true;
-  console.log('✅ MongoDB connected successfully');
+  const conn = mongoose.connection;
+  console.log('✅ MongoDB reconnected successfully');
+  if (conn.host && conn.host.includes('mongodb.net')) {
+    console.log('   Connected to MongoDB Atlas cluster at:', conn.host);
+  }
 });
 
 mongoose.connection.on('error', (err) => {
@@ -182,6 +219,7 @@ const workerRoutes = require('./routes/workerRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const aadhaarRoutes = require('./routes/aadhaarRoutes'); // Aadhaar authentication routes
+const complaintRoutes = require('./routes/complaintRoutes'); // Complaint management routes
 
 // Initialize dashboard Socket.IO namespace
 app.locals.io = io; // Make io available to routes
@@ -322,6 +360,9 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // Use Aadhaar authentication routes for workers
 app.use('/api/aadhaar', aadhaarRoutes);
+
+// Use complaint routes for citizen feedback
+app.use('/api/complaints', complaintRoutes);
 
 // QR validation endpoint - Verify pickup code
 app.post('/api/qr/validate', async (req, res) => {
@@ -2065,9 +2106,9 @@ server.listen(PORT, HOST, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('💾 Database: MongoDB (Real database mode)');
   console.log('🔌 Socket.IO: Enabled for real-time updates');
-  console.log('📱 Mobile app should connect to: http://10.0.8.184:${PORT}');
-  console.log('📝 API Endpoints: http://10.0.8.184:${PORT}/api');
-  console.log('🌐 Socket.IO: http://10.0.8.184:${PORT}');
+  console.log(`📱 Mobile app should connect to: http://192.168.29.154:${PORT}`);
+  console.log(`📝 API Endpoints: http://192.168.29.154:${PORT}/api`);
+  console.log(`🌐 Socket.IO: http://192.168.29.154:${PORT}`);
 });
 
 module.exports = { app, server, io };

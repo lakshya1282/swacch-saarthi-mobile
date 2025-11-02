@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons as Icon } from '@expo/vector-icons';
 
 const WasteValidationScreen = ({ navigation }) => {
   const [selectedImage, setSelectedImage] = useState(null);

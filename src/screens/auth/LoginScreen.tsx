@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { clearAuthStorage, getAuthState } from '../../utils/clearStorage';
+import { getApiBaseUrl } from '../../config/env';
 
 interface FormData {
   email: string;
@@ -55,9 +56,11 @@ const LoginScreen: React.FC = () => {
     }
 
     setLoading(true);
+    const apiUrl = getApiBaseUrl();
+    console.log('🔗 Using API URL:', apiUrl);
 
     try {
-      const response = await axios.post('http://192.168.29.93:3000/api/auth/login', formData);
+      const response = await axios.post(`${apiUrl}/auth/login`, formData);
       
       if (response.data.success) {
         // Store additional worker profile data if user is a worker
@@ -102,8 +105,8 @@ const LoginScreen: React.FC = () => {
             '1. The backend server is running\n' +
             '2. MongoDB is running\n' +
             '3. Your device is connected to the same network\n' +
-            '4. The IP address (192.168.29.93) is correct\n\n' +
-            'Current server: http://192.168.29.93:3000',
+            '4. Check src/config/env.ts for correct IP/port\n\n' +
+            `Current server: ${apiUrl}`,
             [
               { text: 'OK' },
               { 

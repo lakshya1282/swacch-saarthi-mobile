@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { getApiBaseUrl } from '../config/env';
 
 class ApiService {
   private baseURL: string;
@@ -23,26 +24,8 @@ class ApiService {
   }
 
   private getBaseURL(): string {
-    // Configuration for different environments
-    const configs = {
-      // Android Emulator
-      androidEmulator: 'http://10.0.2.2:3000/api',
-      // iOS Simulator - Updated to use actual IP instead of localhost
-      iosSimulator: 'http://192.168.29.93:3000/api',
-      // Physical Device (same network)
-      physicalDevice: 'http://192.168.29.93:3000/api',
-      // Production (update when deployed)
-      production: 'http://192.168.29.93:3000/api'
-    };
-
-    // In development, always use the physical device IP
-    // This works for both emulators and physical devices on the same network
-    if (__DEV__) {
-      return configs.physicalDevice;
-    }
-    
-    // In production, use production URL
-    return configs.production;
+    // Use centralized environment configuration
+    return getApiBaseUrl();
   }
 
   private setupInterceptors() {
@@ -701,6 +684,42 @@ class ApiService {
       // In case of error, assume no attendance to be safe
       return false;
     }
+  }
+
+  // Complaint endpoints
+  async submitComplaint(complaintData: any) {
+    return this.api.post('/complaints/submit', complaintData);
+  }
+
+  async getComplaints() {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        
+        // Admin users should fetch all complaints
+        if (user.userType === 'admin') {
+          console.log('Fetching all complaints for admin');
+          return this.api.get('/complaints/all');
+        }
+        
+        // Citizens fetch their own complaints
+        console.log(`Fetching complaints for citizen: ${user.id}`);
+        return this.api.get(`/complaints/citizen/${user.id}`);
+      }
+      return this.api.get('/complaints/all');
+    } catch (error) {
+      console.error('Error getting user data for complaints:', error);
+      return this.api.get('/complaints/all');
+    }
+  }
+
+  async getComplaintById(complaintId: string) {
+    return this.api.get(`/complaints/${complaintId}`);
+  }
+
+  async updateComplaintStatus(complaintId: string, statusData: any) {
+    return this.api.put(`/complaints/${complaintId}/status`, statusData);
   }
 }
 

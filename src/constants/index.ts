@@ -2,14 +2,19 @@
  * Application-wide constants
  */
 
+import { getApiBaseUrl, getApiHost, getApiPort } from '../config/env';
+
 // API Configuration
 export const API_CONFIG = {
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 3,
+  // Dynamic base URL from environment configuration
+  BASE_URL: getApiBaseUrl(),
+  // Legacy: Keep for backward compatibility
   BASE_URLS: {
     ANDROID_EMULATOR: 'http://10.0.2.2:3000/api',
-    IOS_SIMULATOR: 'http://localhost:3000/api',
-    PHYSICAL_DEVICE: 'http://10.145.5.1:3000/api',
+    IOS_SIMULATOR: `http://${getApiHost()}:${getApiPort()}/api`,
+    PHYSICAL_DEVICE: `http://${getApiHost()}:${getApiPort()}/api`,
     PRODUCTION: 'https://api.swacch-saarthii.com/api', // Update with actual production URL
   },
 } as const;
