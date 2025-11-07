@@ -22,7 +22,7 @@ const OfficeProfile = ({ authToken, officeData, operatorData }) => {
 
       // Load office profile data
       const profileResponse = await fetch(
-        `http://localhost:3000/api/dashboard/office-profile/${officeData._id}`,
+        `http://localhost:3001/api/dashboard/office-profile/${officeData._id}`,
         {
           headers: {
             'Authorization': `Bearer ${authToken}`
@@ -43,7 +43,7 @@ const OfficeProfile = ({ authToken, officeData, operatorData }) => {
 
       // Load enrollment statistics
       const statsResponse = await fetch(
-        `http://localhost:3000/api/dashboard/enrollment-stats/${officeData._id}`,
+        `http://localhost:3001/api/dashboard/enrollment-stats/${officeData._id}`,
         {
           headers: {
             'Authorization': `Bearer ${authToken}`
@@ -150,7 +150,7 @@ const OfficeProfile = ({ authToken, officeData, operatorData }) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:3000/api/dashboard/office-profile/${officeData._id}`,
+        `http://localhost:3001/api/dashboard/office-profile/${officeData._id}`,
         {
           method: 'PUT',
           headers: {

@@ -63,7 +63,7 @@ const Dashboard = ({ officeInfo, operatorInfo, onLogout }) => {
   }, [dateRange, isAutoRefresh, refreshInterval]);
 
   const initializeSocket = () => {
-    const newSocket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:3000', {
+    const newSocket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:3001', {
       auth: {
         token: localStorage.getItem('dashboardAuthToken'),
         officeId: officeInfo._id,

@@ -169,10 +169,10 @@ function App() {
         </div>
         
         <div className="auth-footer">
-          <div className="system-info">
-            <div className="info-item">
-              <strong>Backend Server:</strong> http://localhost:3000
-            </div>
+            <div className="system-info">
+              <div className="info-item">
+                <strong>Backend Server:</strong> http://localhost:3001
+              </div>
             <div className="info-item">
               <strong>Dashboard Interface:</strong> Real-time monitoring enabled
             </div>
@@ -199,7 +199,7 @@ const LoginForm = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/api/dashboard/login', {
+      const response = await fetch('http://localhost:3001/api/dashboard/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

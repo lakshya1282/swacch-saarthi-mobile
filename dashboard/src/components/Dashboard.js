@@ -39,7 +39,7 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
 
       // Load overview data
       const overviewResponse = await fetch(
-        `http://localhost:3000/api/dashboard/overview/${officeData._id}?range=today`,
+        `http://localhost:3001/api/dashboard/overview/${officeData._id}?range=today`,
         {
           headers: {
             'Authorization': `Bearer ${authToken}`
@@ -66,7 +66,7 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
       if (officeData.officeCode) {
         try {
           const enrolledWorkersResponse = await fetch(
-            `http://localhost:3000/api/dashboard/enrolled-workers/${officeData.officeCode}`,
+            `http://localhost:3001/api/dashboard/enrolled-workers/${officeData.officeCode}`,
             {
               headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -91,7 +91,7 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
       if (!workersLoaded) {
         try {
           const workersResponse = await fetch(
-            `http://localhost:3000/api/dashboard/workers/${officeData._id}`,
+            `http://localhost:3001/api/dashboard/workers/${officeData._id}`,
             {
               headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -113,7 +113,7 @@ const Dashboard = ({ authToken, officeData, operatorData, onLogout }) => {
       if (activeTab === 'attendance' || activeTab === 'dashboard') {
         try {
           const attendanceResponse = await fetch(
-            `http://localhost:3000/api/dashboard/attendance/${officeData.officeCode}?date=${selectedDate}`,
+            `http://localhost:3001/api/dashboard/attendance/${officeData.officeCode}?date=${selectedDate}`,
             {
               headers: {
                 'Authorization': `Bearer ${authToken}`

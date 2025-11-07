@@ -31,10 +31,18 @@ class SocketService {
       }
       
       this.socket = io(serverUrl, {
-        transports: ['websocket', 'polling'], // Add polling as fallback
+        transports: ['websocket', 'polling', 'webtransport'], // Add polling as fallback
         reconnection: false, // We handle reconnection manually
         timeout: 5000, // Connection timeout
         forceNew: true, // Force new connection
+        autoConnect: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        randomizationFactor: 0.5,
+        secure: false,
+        rejectUnauthorized: false,
+        perMessageDeflate: false,
+        allowEIO3: true,
       });
 
       // Set a timeout for connection attempt
@@ -92,9 +100,15 @@ class SocketService {
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error.message);
+      console.error('Socket connection error:', error.message || error);
+      console.error('Error details:', error);
       console.error('Failed URL:', this.serverUrls[this.currentUrlIndex]);
+      console.log('Attempting fallback URL...');
       // Don't call handleReconnect here as tryNextUrl will handle it
+    });
+
+    this.socket.on('error', (error) => {
+      console.error('Socket IO error event:', error);
     });
 
     // Listen for pickup updates
@@ -155,7 +169,11 @@ class SocketService {
     
     // Disconnect current socket if exists
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch (e) {
+        console.log('Error during disconnect:', e);
+      }
       this.socket = null;
     }
     
@@ -167,7 +185,9 @@ class SocketService {
       this.handleReconnect();
     } else {
       // Try next URL immediately
-      this.connect();
+      setTimeout(() => {
+        this.connect();
+      }, 500); // Small delay before trying next URL
     }
   };
 

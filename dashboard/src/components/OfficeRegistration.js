@@ -118,7 +118,7 @@ const OfficeRegistration = ({ onRegistrationSuccess, onBackToLogin }) => {
     };
 
     try {
-      const response = await fetch('http://localhost:3000/api/dashboard/register-office', {
+      const response = await fetch('http://localhost:3001/api/dashboard/register-office', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 class DashboardSocketService {
   constructor() {
     this.socket = null;
-    this.serverUrl = 'http://localhost:3000';
+    this.serverUrl = 'http://localhost:3001';
     this.officeCode = null;
     this.listeners = new Map();
     this.reconnectAttempts = 0;

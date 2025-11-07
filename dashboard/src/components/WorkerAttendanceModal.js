@@ -45,7 +45,7 @@ const WorkerAttendanceModal = ({
       if (end) queryParams.append('endDate', end);
       queryParams.append('limit', '100');
 
-      const response = await fetch(`http://localhost:3000/api/dashboard/attendance/worker/${workerId}?${queryParams}`, {
+      const response = await fetch(`http://localhost:3001/api/dashboard/attendance/worker/${workerId}?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }

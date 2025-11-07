@@ -22,8 +22,15 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
-  }
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+    allowEIO3: true,
+  },
+  transports: ['websocket', 'polling', 'webtransport'],
+  pingInterval: 25000,
+  pingTimeout: 5000,
+  allowUpgrades: true,
+  perMessageDeflate: false,
 });
 
 // Middleware
@@ -2106,9 +2113,9 @@ server.listen(PORT, HOST, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('💾 Database: MongoDB (Real database mode)');
   console.log('🔌 Socket.IO: Enabled for real-time updates');
-  console.log(`📱 Mobile app should connect to: http://192.168.29.154:${PORT}`);
-  console.log(`📝 API Endpoints: http://192.168.29.154:${PORT}/api`);
-  console.log(`🌐 Socket.IO: http://192.168.29.154:${PORT}`);
+  console.log(`📱 Mobile app should connect to: http://192.168.137.176:${PORT}`);
+  console.log(`📝 API Endpoints: http://192.168.137.176:${PORT}/api`);
+  console.log(`🌐 Socket.IO: http://192.168.137.176:${PORT}`);
 });
 
 module.exports = { app, server, io };
