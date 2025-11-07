@@ -10,7 +10,7 @@ import { Platform } from 'react-native';
 // For now, we'll use a fallback approach with manual configuration
 
 // Default values (update these if your IP changes)
-const DEFAULT_API_HOST = '192.168.29.154';
+const DEFAULT_API_HOST = '10.10.119.150';
 const DEFAULT_API_PORT = '3001';
 
 /**

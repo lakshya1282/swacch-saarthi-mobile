@@ -1067,6 +1067,40 @@ app.post('/api/auth/login', async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     console.log(`🔍 Searching for user with email: ${normalizedEmail}`);
     
+    // Optional: allow demo login even when MongoDB is connected (controlled by env)
+    if (process.env.ALLOW_DEMO_LOGIN === 'true') {
+      const demoCredentials = {
+        'citizen@demo.com': { password: 'demo123', userType: 'citizen' },
+        'worker@demo.com': { password: 'demo123', userType: 'worker' },
+      };
+      const demoUser = demoCredentials[normalizedEmail];
+      if (demoUser && demoUser.password === password) {
+        const userResponse = {
+          id: 'demo_user_' + Date.now(),
+          firstName: 'Demo',
+          lastName: 'User',
+          email: normalizedEmail,
+          phone: '9999999999',
+          address: 'Demo Address',
+          userType: demoUser.userType,
+          location: { latitude: 20.5937, longitude: 78.9629 }
+        };
+        const token = jwt.sign(
+          { userId: userResponse.id, email: userResponse.email, userType: userResponse.userType },
+          process.env.JWT_SECRET || 'waste-management-secret',
+          { expiresIn: '7d' }
+        );
+        console.log(`✅ Demo login (ALLOW_DEMO_LOGIN) successful: ${normalizedEmail}`);
+        return res.json({
+          success: true,
+          message: 'Login successful (Demo user allowed)',
+          token,
+          user: userResponse,
+          demoMode: true
+        });
+      }
+    }
+    
     // Check if MongoDB is connected
     if (!isMongoConnected) {
       console.log('⚠️ MongoDB not connected - using demo mode');
@@ -1118,77 +1152,101 @@ app.post('/api/auth/login', async (req, res) => {
     // MongoDB is connected - use real authentication
     console.log('📊 Checking MongoDB for user credentials...');
     
-    // Find user by email
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user) {
-      console.log(`❌ User not found: ${normalizedEmail}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
-      });
+    // Try User collection first
+    let account = await User.findOne({ email: normalizedEmail });
+    let accountType = 'citizen';
+
+    // If not found, try Worker collection
+    if (!account) {
+      try {
+        const Worker = require('./models/Worker');
+        const worker = await Worker.findOne({ email: normalizedEmail });
+        if (worker) {
+          account = worker;
+          accountType = 'worker';
+        }
+      } catch (e) {
+        console.warn('Worker model lookup failed:', e.message);
+      }
     }
-    
-    console.log(`✅ User found: ${user.firstName} ${user.lastName} (${user.userType})`);
-    console.log(`🔐 Validating password...`);
-    
-    // Validate password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      console.log(`❌ Invalid password for user: ${normalizedEmail}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
-      });
+
+    if (!account) {
+      console.log(`❌ Account not found: ${normalizedEmail}`);
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
-    
-    console.log(`🎉 Password validated successfully!`);
-    
-    // Check if user is active
-    if (!user.isActive) {
-      console.log(`❌ User account is deactivated: ${normalizedEmail}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Account is deactivated. Please contact support.' 
-      });
+
+    console.log(`✅ Account found (${accountType}): ${account.firstName} ${account.lastName}`);
+    console.log('🔐 Validating password...');
+
+    // Detect if stored password is bcrypt hash (starts with $2)
+    const looksHashed = typeof account.password === 'string' && account.password.startsWith('$2');
+
+    let passwordOk = false;
+    if (looksHashed) {
+      passwordOk = await bcrypt.compare(password, account.password);
+    } else {
+      // Legacy/plaintext fallback: accept if match, then migrate to bcrypt
+      if (password === account.password) {
+        passwordOk = true;
+        try {
+          const newHash = await bcrypt.hash(password, 10);
+          account.password = newHash;
+          if (typeof account.save === 'function') {
+            await account.save();
+            console.log('🔄 Migrated plaintext password to bcrypt hash');
+          }
+        } catch (hashErr) {
+          console.warn('Password migration failed:', hashErr.message);
+        }
+      }
     }
-    
-    // Generate JWT token
+
+    if (!passwordOk) {
+      console.log(`❌ Password validation failed for: ${normalizedEmail}`);
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    console.log('🎉 Password validated successfully!');
+
+    // Account status checks
+    if (accountType === 'citizen') {
+      if (account.isActive === false) {
+        console.log(`❌ Citizen account deactivated: ${normalizedEmail}`);
+        return res.status(401).json({ success: false, message: 'Account is deactivated. Please contact support.' });
+      }
+    } else if (accountType === 'worker') {
+      // For workers, allow login regardless of "status" field (duty state), no isActive flag exists
+    }
+
+    // Build token payload
     const token = jwt.sign(
-      { 
-        userId: user._id.toString(), 
-        email: user.email, 
-        userType: user.userType,
-        name: user.fullName
+      {
+        userId: account._id.toString(),
+        email: account.email,
+        userType: accountType,
+        name: `${account.firstName} ${account.lastName}`.trim(),
       },
       process.env.JWT_SECRET || 'waste-management-secret',
       { expiresIn: '7d' }
     );
-    
-    console.log(`🔑 JWT token generated for user: ${user._id}`);
-    
-    // Prepare user response (exclude sensitive data)
+
+    console.log(`🔑 JWT token generated for account: ${account._id}`);
+
+    // Prepare response
     const userResponse = {
-      id: user._id.toString(),
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      address: user.address,
-      userType: user.userType,
-      location: user.location,
-      isVerified: user.isVerified,
-      totalPickups: user.totalPickups,
-      rating: user.rating
+      id: account._id.toString(),
+      firstName: account.firstName,
+      lastName: account.lastName,
+      email: account.email,
+      phone: account.phone,
+      address: account.address,
+      userType: accountType,
+      location: account.location || { latitude: 0, longitude: 0 },
     };
-    
-    console.log(`✅ Login successful: ${user.firstName} ${user.lastName} (${user.userType})`);
-    
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token,
-      user: userResponse
-    });
+
+    console.log(`✅ Login successful: ${account.firstName} ${account.lastName} (${accountType})`);
+
+    res.json({ success: true, message: 'Login successful', token, user: userResponse });
     
   } catch (error) {
     console.error('🚨 Login error:', error);
@@ -2101,14 +2159,17 @@ app.use((error, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 const HOST = '0.0.0.0'; // Listen on all interfaces
 
+// Determine a display host for logs (use API_HOST if set, else fallback to current known IP)
+const DISPLAY_HOST = process.env.API_HOST || '10.10.119.150';
+
 server.listen(PORT, HOST, () => {
   console.log(`Server running on ${HOST}:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('💾 Database: MongoDB (Real database mode)');
   console.log('🔌 Socket.IO: Enabled for real-time updates');
-  console.log(`📱 Mobile app should connect to: http://192.168.29.154:${PORT}`);
-  console.log(`📝 API Endpoints: http://192.168.29.154:${PORT}/api`);
-  console.log(`🌐 Socket.IO: http://192.168.29.154:${PORT}`);
+  console.log(`📱 Mobile app should connect to: http://${DISPLAY_HOST}:${PORT}`);
+  console.log(`📝 API Endpoints: http://${DISPLAY_HOST}:${PORT}/api`);
+  console.log(`🌐 Socket.IO: http://${DISPLAY_HOST}:${PORT}`);
 });
 
 module.exports = { app, server, io };

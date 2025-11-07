@@ -31,9 +31,10 @@ class SocketService {
       }
       
       this.socket = io(serverUrl, {
+        path: '/socket.io',
         transports: ['websocket', 'polling'], // Add polling as fallback
         reconnection: false, // We handle reconnection manually
-        timeout: 5000, // Connection timeout
+        timeout: 10000, // Connection timeout (increase for mobile networks)
         forceNew: true, // Force new connection
       });
 
@@ -85,8 +86,8 @@ class SocketService {
 
     this.socket.on('disconnect', (reason) => {
       console.log('🔌 Socket disconnected:', reason);
-      if (reason === 'io server disconnect') {
-        // Server initiated disconnect, try to reconnect
+      // Reconnect on any unexpected disconnect (not client-initiated)
+      if (reason !== 'io client disconnect') {
         this.handleReconnect();
       }
     });
@@ -94,13 +95,21 @@ class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error.message);
       console.error('Failed URL:', this.serverUrls[this.currentUrlIndex]);
-      // Don't call handleReconnect here as tryNextUrl will handle it
+      // Immediately try the next configured URL
+      this.tryNextUrl();
     });
 
     // Listen for pickup updates
     this.socket.on('pickup-update', (data) => {
       console.log('📡 Received pickup update:', data.type);
       this.notifyListeners('pickup-update', data);
+    });
+
+    // Server may emit either 'new-pickup-available' or 'new-pickup'
+    this.socket.on('new-pickup-available', (data) => {
+      console.log('🆕 New pickup available (server event):', data);
+      // Normalize to 'new-pickup' for app consumers
+      this.notifyListeners('new-pickup', data);
     });
 
     this.socket.on('new-pickup', (data) => {

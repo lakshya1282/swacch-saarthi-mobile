@@ -11,7 +11,7 @@ export interface ServerHealth {
 export const checkServerHealth = async (): Promise<ServerHealth> => {
   try {
     // First check if server is reachable
-    const response = await axios.get(`${SERVER_URL}/api/health`, {
+    const response = await axios.get(`${API_BASE_URL}/api/health`, {
       timeout: 5000
     });
     

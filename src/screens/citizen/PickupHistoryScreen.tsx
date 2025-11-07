@@ -76,13 +76,28 @@ const PickupHistoryScreen: React.FC = () => {
   const fetchPickupHistory = async () => {
     try {
       const response = await apiService.getPickupHistory();
-      setPickups(response.data || []);
-      setStats(response.stats || {
-        total: 0,
-        completed: 0,
-        pending: 0,
-        cancelled: 0,
-      });
+
+      // apiService (api.service.ts) returns data directly, not an AxiosResponse
+      const pickups: any[] = Array.isArray(response)
+        ? response
+        : (response as any)?.data || (response as any)?.pickups || [];
+
+      setPickups(pickups);
+
+      // Compute basic stats from the pickups list
+      const statsComputed = pickups.reduce(
+        (acc, p) => {
+          acc.total += 1;
+          const status = String(p.status || '').toLowerCase();
+          if (status === 'completed') acc.completed += 1;
+          else if (status === 'cancelled' || status === 'rejected') acc.cancelled += 1;
+          else if (['pending', 'scheduled', 'assigned', 'in_progress', 'reached', 'collected'].includes(status)) acc.pending += 1;
+          return acc;
+        },
+        { total: 0, completed: 0, pending: 0, cancelled: 0 }
+      );
+
+      setStats(statsComputed);
     } catch (error) {
       console.error('Error fetching pickup history:', error);
       Alert.alert('Error', 'Failed to load pickup history');

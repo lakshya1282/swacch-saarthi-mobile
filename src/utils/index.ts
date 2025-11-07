@@ -326,16 +326,9 @@ export const isPhysicalDevice = (): boolean => {
 
 /**
  * Gets appropriate API base URL based on environment
+ * NOTE: Delegate to centralized env config to keep URLs consistent everywhere
  */
-export const getApiBaseUrl = (): string => {
-  if (!__DEV__) {
-    return 'https://api.swacch-saarthii.com/api'; // Production URL
-  }
-  
-  // Always use the actual IP address in development
-  // This works for both physical devices and emulators on the same network
-  return 'http://192.168.29.154:3000/api';
-};
+export { getApiBaseUrl } from '../config/env';
 
 /**
  * Safely parses JSON
